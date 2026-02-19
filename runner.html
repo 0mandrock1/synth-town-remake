@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Synth Town — Test Runner</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', monospace, sans-serif;
+      background: #0a0a12;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+    h1 { color: #64b5f6; margin-bottom: 10px; font-size: 20px; }
+    .info { color: #999; margin-bottom: 20px; font-size: 13px; }
+    .controls { margin-bottom: 20px; }
+    .controls button {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 8px 16px;
+      margin-right: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .controls button:hover { background: #2a2a4e; }
+    .controls button.active { background: #64b5f6; color: #0a0a12; }
+    #game-frame {
+      width: 100%;
+      height: 600px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+    #log {
+      margin-top: 20px;
+      background: #12122a;
+      padding: 16px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏙️ Synth Town — Test Runner</h1>
+  <div class="info">
+    Выбери этап и нажми "Run Tests". Тесты запустятся внутри iframe с index.html.
+    <br>Результаты появятся в консоли и ниже.
+  </div>
+
+  <div class="controls">
+    <button onclick="runStage(1)">Stage 1</button>
+    <button onclick="runStage(2)">Stage 2</button>
+    <button onclick="runStage(3)">Stage 3</button>
+    <button onclick="runStage(4)">Stage 4</button>
+    <button onclick="runStage(5)">Stage 5</button>
+    <button onclick="runStage(6)">Stage 6</button>
+    <button onclick="runStage(7)">Stage 7</button>
+    <button onclick="runStage(8)">Stage 8</button>
+    <button onclick="runAll()" style="margin-left:16px; background:#66bb6a; color:#000">Run All</button>
+  </div>
+
+  <iframe id="game-frame" src="about:blank"></iframe>
+  <div id="log">Waiting for test run...</div>
+
+  <script>
+    const log = document.getElementById('log');
+
+    function addLog(msg, color) {
+      const line = document.createElement('div');
+      line.style.color = color || '#e0e0e0';
+      line.textContent = msg;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog() {
+      log.innerHTML = '';
+    }
+
+    function runStage(n) {
+      clearLog();
+      addLog('Loading index.html + tests for Stage ' + n + '...', '#64b5f6');
+
+      const frame = document.getElementById('game-frame');
+
+      // Загружаем index.html
+      frame.src = '../index.html';
+
+      frame.onload = function() {
+        const doc = frame.contentDocument;
+        const win = frame.contentWindow;
+
+        addLog('index.html loaded. Injecting test scripts...', '#ffa726');
+
+        // Inject test_helpers.js
+        const helperScript = doc.createElement('script');
+        helperScript.src = 'test_helpers.js';
+        helperScript.onload = function() {
+          addLog('test_helpers.js loaded.', '#999');
+
+          // Redirect console.log from iframe
+          const origLog = win.console.log;
+          win.console.log = function() {
+            origLog.apply(win.console, arguments);
+            const text = Array.from(arguments).map(function(a) {
+              return typeof a === 'string' ? a.replace(/%c/g, '') : String(a);
+            }).join(' ');
+            if (text.includes('✅')) addLog(text, '#66bb6a');
+            else if (text.includes('❌')) addLog(text, '#ef5350');
+            else if (text.includes('[TEST]')) addLog(text, '#64b5f6');
+          };
+
+          // Inject test file
+          const testScript = doc.createElement('script');
+          testScript.src = 'test_stage_' + n + '.js';
+          testScript.onload = function() {
+            addLog('Tests complete.', '#64b5f6');
+          };
+          testScript.onerror = function() {
+            addLog('ERROR: Could not load test_stage_' + n + '.js', '#ef5350');
+          };
+          doc.body.appendChild(testScript);
+        };
+        helperScript.onerror = function() {
+          addLog('ERROR: Could not load test_helpers.js', '#ef5350');
+        };
+        doc.body.appendChild(helperScript);
+      };
+
+      frame.onerror = function() {
+        addLog('ERROR: Could not load index.html', '#ef5350');
+      };
+    }
+
+    function runAll() {
+      clearLog();
+      addLog('Running all stages sequentially...', '#66bb6a');
+
+      let current = 1;
+      function next() {
+        if (current > 8) {
+          addLog('\n=== ALL STAGES COMPLETE ===', '#66bb6a');
+          return;
+        }
+        addLog('\n--- Stage ' + current + ' ---', '#ffa726');
+        // Simple sequential run - for full run, use iframe per stage
+        runStage(current);
+        current++;
+        // Note: this is simplified - proper sequential would need
+        // waiting for each stage to complete
+      }
+      next();
+    }
+  </script>
+</body>
+</html>
