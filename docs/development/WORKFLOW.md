@@ -5,7 +5,7 @@
 
 ## Шаги
 1. Определи текущий этап в `stages/STAGE_*.md`.
-2. Проверь зависимые API в `docs/claude/CONTRACTS.md`.
+2. Проверь зависимые API в `prompts/claude-code/CONTRACTS.md`.
 3. Реализуй MUST-пункты.
 4. Запусти тесты этапа из `tests/`.
 5. Реализуй SHOULD-пункты (если есть время).

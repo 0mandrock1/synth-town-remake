@@ -15,7 +15,7 @@
 - [ ] Улучшение 2
 
 ## Контракты
-См. `docs/claude/CONTRACTS.md`.
+См. `prompts/claude-code/CONTRACTS.md`.
 
 ## Тесты
 - `tests/test_stage_N.js`

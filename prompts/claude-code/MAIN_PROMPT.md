@@ -1,16 +1,21 @@
 # SYNTH TOWN — MAIN PROMPT FOR CLAUDE CODE
-> Версия: 2.1
+> Версия: 2.2
 
-Браузерный city builder, где город = музыкальный секвенсор.
+Ремейк `https://synth.town`: браузерный city builder, где город = музыкальный секвенсор.
 Здания = осцилляторы, дороги = маршруты, машины = playhead-ы.
 Ограничение: один `index.html`, Web Audio API, без внешних зависимостей (кроме шрифтов CDN).
 
+## Prompt Directory
+- `PROMPTS_DIR = prompts/claude-code/`
+- Все core-инструкции для Claude Code читать только из этой папки.
+
 ## Порядок чтения документации
-1. `docs/claude/CLAUDE_CODE.md`
-2. `docs/claude/ARCHITECTURE.md`
-3. `docs/claude/CONTRACTS.md` (текущий этап)
-4. `docs/claude/SPEC.md`
-5. `stages/STAGE_*.md` (только активный этап)
+1. `PROMPTS_DIR/CLAUDE_CODE.md`
+2. `PROMPTS_DIR/ARCHITECTURE.md`
+3. `PROMPTS_DIR/CONTRACTS.md` (текущий этап)
+4. `PROMPTS_DIR/SPEC.md`
+5. `PROMPTS_DIR/INSPIRATION_DELTA.md`
+6. `stages/STAGE_*.md` (только активный этап)
 
 ## Рабочий цикл
 1. Выбери один этап.
@@ -31,10 +36,16 @@
 - Share URL + localStorage.
 - Тесты этапов проходят.
 
+## Финальные приоритеты перед разработкой
+- Игрок должен получить первый музыкальный цикл за 60-90 секунд после старта.
+- Любое действие в городе должно менять звук немедленно и предсказуемо.
+- Геометрия и звук связаны напрямую: форма здания и тип транспорта влияют на синтез.
+- Прототип должен ощущаться как музыкальный инструмент, а не только city-builder.
+
 ## Где расширять вручную
 - Иконки и графические правки: `assets/manual/icons/`
 - Локальные патчи и ручные подложки: `assets/manual/overrides/`
 - Референсы и эскизы: `assets/manual/references/`
 
 ## Дополнительно
-- Архив полного исторического промпта: `docs/claude/PROMPT_ARCHIVE.md`
+- Архив полного исторического промпта: `PROMPTS_DIR/PROMPT_ARCHIVE.md`

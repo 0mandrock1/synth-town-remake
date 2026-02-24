@@ -1,11 +1,14 @@
 # ИНСТРУКЦИИ ДЛЯ CLAUDE CODE
 
+Контекст: проект — ремейк `https://synth.town`.
+
 ## Workflow
 1. Работай СТРОГО по одному этапу за сессию
-2. Перед началом — прочитай `docs/claude/CONTRACTS.md` секцию "ПОТРЕБЛЯЕТ API" текущего этапа
+2. Перед началом — прочитай `prompts/claude-code/CONTRACTS.md`, секцию "ПОТРЕБЛЯЕТ API" текущего этапа
 3. Убедись что API предыдущих этапов существуют и работают
-4. Реализуй MUST -> подключи тесты -> SHOULD -> тесты -> коммит
-5. Не переходи к следующему этапу пока тесты не зелёные
+4. Проверь `prompts/claude-code/INSPIRATION_DELTA.md` и зафиксируй 2-3 принципа текущей реализации
+5. Реализуй MUST -> подключи тесты -> SHOULD -> тесты -> коммит
+6. Не переходи к следующему этапу пока тесты не зелёные
 
 ## Code Style
 - Vanilla JS (ES2020+). Никакого TypeScript
@@ -19,6 +22,7 @@
 - В начале модуля: `console.log('[MODULE_NAME] initialized')`
 - При trigger: `console.log('[AUDIO] trigger:', waveform, pitch)`
 - Dev mode: `ST.Config.DEV = true` → FPS counter
+- Для UX-проверки: `console.log('[ONBOARDING] step:', stepName)`
 
 ## Когда рефакторить
 - Модуль > 200 строк → разбить на суб-модули
@@ -59,3 +63,8 @@
 Примеры:
 - `[STAGE 1] Grid, audio engine, basic car movement`
 - `[STAGE 2] 5 building types, road autoconnect, property panel`
+
+## Мини-чек перед merge
+- Есть первый playable loop за 60-90 секунд.
+- У зданий читается соответствие форма -> waveform.
+- У транспорта слышно различие по envelope/динамике.
