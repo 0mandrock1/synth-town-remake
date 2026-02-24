@@ -23,9 +23,6 @@
       background: #0a0a12;
       color: #e0e0e0;
     }
-    #app.st-props-open {
-      grid-template-columns: 200px 1fr 220px;
-    }
 
     /* === TOOLBAR === */
     #toolbar {
@@ -67,7 +64,6 @@
       border-radius: 50%;
       flex-shrink: 0;
     }
-    .st-limit-warn { font-size: 10px; color: #ef5350; padding: 4px 6px; }
 
     /* === MAIN CANVAS === */
     main {
@@ -142,8 +138,8 @@
     .st-transport-label { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
     #slider-bpm { width: 120px; cursor: pointer; accent-color: #64b5f6; }
     #bpm-display { font-size: 13px; color: #64b5f6; font-weight: 600; min-width: 36px; }
-    #fps-display { font-size: 11px; color: rgba(255,255,255,0.3); margin-left: auto; }
     #status-display { font-size: 11px; color: rgba(255,255,255,0.3); }
+    #fps-display { font-size: 11px; color: rgba(255,255,255,0.3); margin-left: auto; }
 
     /* === MODALS & OVERLAYS === */
     #audio-overlay {
@@ -252,38 +248,42 @@
 
       trigger: function(params) {
         if (!_ctx || _ctx.state === 'suspended') return;
-        const waveform = params.waveform || 'sine';
-        const pitch = params.pitch || 440;
-        const decay = params.decay || 0.5;
-        const velocity = params.velocity !== undefined ? params.velocity : 1.0;
+        const waveform  = params.waveform  || 'sine';
+        const pitch     = params.pitch     || 440;
+        const decay     = params.decay     || 0.5;
+        const velocity  = params.velocity  !== undefined ? params.velocity : 1.0;
+        const attack    = params.attack    || 0;
         const now = _ctx.currentTime;
 
         const osc = _ctx.createOscillator();
         const env = _ctx.createGain();
         osc.type = waveform;
         osc.frequency.value = pitch;
-        env.gain.setValueAtTime(0.4 * velocity, now);
-        env.gain.exponentialRampToValueAtTime(0.001, now + decay);
+
+        if (attack > 0) {
+          env.gain.setValueAtTime(0.001, now);
+          env.gain.linearRampToValueAtTime(0.4 * velocity, now + attack);
+        } else {
+          env.gain.setValueAtTime(0.4 * velocity, now);
+        }
+        env.gain.exponentialRampToValueAtTime(0.001, now + attack + decay);
+
         osc.connect(env);
         env.connect(_masterGain);
         osc.start(now);
-        osc.stop(now + decay + 0.05);
+        osc.stop(now + attack + decay + 0.05);
 
-        if (typeof ST.Audio.onTrigger === 'function') {
-          ST.Audio.onTrigger(params);
-        }
-        if (ST.Config.DEV) {
-          console.log('[Audio] trigger:', waveform, pitch);
-        }
+        if (typeof ST.Audio.onTrigger === 'function') ST.Audio.onTrigger(params);
+        if (ST.Config.DEV) console.log('[Audio] trigger:', waveform, pitch);
       },
 
       setBPM: function(bpm) {
         _bpm = Math.max(ST.Config.BPM_MIN, Math.min(ST.Config.BPM_MAX, bpm));
       },
 
-      getBPM: function() { return _bpm; },
-      isReady: function() { return _ctx !== null && _ctx.state !== 'suspended'; },
-      getContext: function() { return _ctx; },
+      getBPM:      function() { return _bpm; },
+      isReady:     function() { return _ctx !== null && _ctx.state !== 'suspended'; },
+      getContext:  function() { return _ctx; },
       getMasterGain: function() { return _masterGain; }
     };
   })();
@@ -297,7 +297,7 @@
     let _tiles = null;
 
     function _makeTile() {
-      return { type: 'empty', roadDir: null, building: null };
+      return { type: 'empty', roadDir: null, building: null, sign: null };
     }
 
     return {
@@ -395,9 +395,9 @@
     function _drawSawtooth(ctx, bx, by, bw, color) {
       ctx.fillStyle = color;
       const stepW = Math.round(bw / 3);
-      ctx.fillRect(bx,              by - 7, stepW, 7);
-      ctx.fillRect(bx + stepW,      by - 4, stepW, 4);
-      ctx.fillRect(bx + stepW * 2,  by - 2, stepW, 2);
+      ctx.fillRect(bx,             by - 7, stepW, 7);
+      ctx.fillRect(bx + stepW,     by - 4, stepW, 4);
+      ctx.fillRect(bx + stepW * 2, by - 2, stepW, 2);
     }
 
     function _drawPulse(ctx, bx, by, bw, color) {
@@ -446,7 +446,7 @@
         const { TILE } = ST.Config;
         const def = TYPES[b.type];
         if (!def) return;
-        const t = (b.level - 1) / 7;
+        const t  = (b.level - 1) / 7;
         const bw = Math.round(def.widthRatio * TILE);
         const bh = Math.round((def.minH + t * (def.maxH - def.minH)) * TILE);
         const bx = b.x * TILE + Math.round((TILE - bw) / 2);
@@ -455,7 +455,7 @@
         if (b.flash > 0) {
           ctx.save();
           ctx.shadowColor = b.color;
-          ctx.shadowBlur = 4 + b.flash * 16;
+          ctx.shadowBlur  = 4 + b.flash * 16;
         }
 
         ctx.fillStyle = b.color;
@@ -480,11 +480,9 @@
         return { pitch: b.pitch, decay: b.decay, waveform: b.waveform, color: b.color, level: b.level };
       },
 
-      setProperty: function(b, key, val) {
-        b[key] = val;
-      },
+      setProperty: function(b, key, val) { b[key] = val; },
 
-      count: function() { return _buildings.length; },
+      count:  function() { return _buildings.length; },
       getAll: function() { return _buildings.slice(); }
     };
   })();
@@ -495,7 +493,7 @@
   ST.Roads = (function() {
     console.log('[Roads] initialized');
 
-    const DIR_DELTA = { N: { dx: 0, dy: -1 }, S: { dx: 0, dy: 1 }, E: { dx: 1, dy: 0 }, W: { dx: -1, dy: 0 } };
+    const DIR_DELTA = { N:{dx:0,dy:-1}, S:{dx:0,dy:1}, E:{dx:1,dy:0}, W:{dx:-1,dy:0} };
     let _count = 0;
 
     function _recalcDir(x, y) {
@@ -522,7 +520,7 @@
       remove: function(x, y) {
         const tile = ST.Grid.getTile(x, y);
         if (!tile || tile.type !== 'road') return;
-        ST.Grid.setTile(x, y, { type: 'empty', roadDir: null, building: null });
+        ST.Grid.setTile(x, y, { type: 'empty', roadDir: null, building: null, sign: null });
         _count--;
         ST.Grid.getNeighbors(x, y).forEach(function(nb) {
           if (nb.tile.type === 'road') _recalcDir(nb.x, nb.y);
@@ -553,11 +551,11 @@
         ctx.fillStyle = COLORS.road;
         ctx.fillRect(px, py, TILE, TILE);
 
-        const dir = tile.roadDir || '';
-        const hasN = dir.includes('N');
-        const hasS = dir.includes('S');
-        const hasE = dir.includes('E');
-        const hasW = dir.includes('W');
+        const dir      = tile.roadDir || '';
+        const hasN     = dir.includes('N');
+        const hasS     = dir.includes('S');
+        const hasE     = dir.includes('E');
+        const hasW     = dir.includes('W');
         const isolated = !hasN && !hasS && !hasE && !hasW;
         const cx = px + TILE / 2;
         const cy = py + TILE / 2;
@@ -586,6 +584,288 @@
   })();
 
   // ============================================================
+  // 6. ST.Vehicles
+  // ============================================================
+  ST.Vehicles = (function() {
+    console.log('[Vehicles] initialized');
+
+    const TYPES = {
+      car:     { velocityMult: 1.00, attack: 0,     decay: 0.20, color: '#dce0e8', size: 5 },
+      bicycle: { velocityMult: 0.80, attack: 0.005, decay: 0.12, color: '#64b5f6', size: 3 },
+      bus:     { velocityMult: 1.20, attack: 0.010, decay: 0.45, color: '#ffa726', size: 7 }
+    };
+
+    const DIR_DELTA    = { N:{dx:0,dy:-1}, S:{dx:0,dy:1}, E:{dx:1,dy:0}, W:{dx:-1,dy:0} };
+    const DIR_OPPOSITE = { N:'S', S:'N', E:'W', W:'E' };
+    const DIR_ANGLE    = { E:0, S:Math.PI/2, W:Math.PI, N:-Math.PI/2 };
+    const _vehicles = [];
+
+    function _chooseDir(x, y, currentDir) {
+      const tile = ST.Grid.getTile(x, y);
+      if (!tile) return null;
+      const roadDir = tile.roadDir || '';
+      const possible = ['N','S','E','W'].filter(function(d) { return roadDir.includes(d); });
+      if (possible.length === 0) return null;
+      const noUTurn = possible.filter(function(d) { return d !== DIR_OPPOSITE[currentDir]; });
+      const choices = noUTurn.length > 0 ? noUTurn : possible;
+      return choices[Math.floor(Math.random() * choices.length)];
+    }
+
+    function _triggerNearby(vehicle) {
+      const typeDef = TYPES[vehicle.type];
+      ST.Grid.getNeighbors(vehicle.x, vehicle.y).forEach(function(nb) {
+        if (nb.tile.type === 'building' && nb.tile.building) {
+          const b = nb.tile.building;
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult
+          });
+          b.flash = 1.0;
+          if (ST.Config.DEV) console.log('[ONBOARDING] step: trigger');
+        }
+      });
+    }
+
+    function _advance(vehicle) {
+      const signResult = ST.Signs.evaluate(vehicle, vehicle.x, vehicle.y);
+      if (signResult && signResult.action === 'stop') {
+        vehicle.stopped   = true;
+        vehicle.stopTimer = signResult.duration || 0.5;
+        vehicle.nextX = vehicle.x;
+        vehicle.nextY = vehicle.y;
+        return;
+      }
+
+      const dir = (signResult && signResult.action === 'force')
+        ? signResult.direction
+        : _chooseDir(vehicle.x, vehicle.y, vehicle.dir);
+
+      if (!dir) { vehicle.nextX = vehicle.x; vehicle.nextY = vehicle.y; return; }
+
+      const d  = DIR_DELTA[dir];
+      const nx = vehicle.x + d.dx;
+      const ny = vehicle.y + d.dy;
+      const tile = ST.Grid.getTile(nx, ny);
+
+      if (!tile || tile.type !== 'road') {
+        const rev  = DIR_OPPOSITE[dir];
+        const rd   = DIR_DELTA[rev];
+        const revTile = ST.Grid.getTile(vehicle.x + rd.dx, vehicle.y + rd.dy);
+        if (revTile && revTile.type === 'road') {
+          vehicle.dir = rev;
+          vehicle.nextX = vehicle.x + rd.dx;
+          vehicle.nextY = vehicle.y + rd.dy;
+        } else {
+          vehicle.nextX = vehicle.x;
+          vehicle.nextY = vehicle.y;
+        }
+        return;
+      }
+
+      vehicle.dir   = dir;
+      vehicle.nextX = nx;
+      vehicle.nextY = ny;
+    }
+
+    return {
+      TYPES: TYPES,
+
+      spawn: function(type, x, y) {
+        if (_vehicles.length >= ST.Config.MAX_VEHICLES) return null;
+        const tile = ST.Grid.getTile(x, y);
+        if (!tile || tile.type !== 'road') return null;
+        if (!TYPES[type]) return null;
+
+        const roadDir = tile.roadDir || '';
+        const dirs = ['N','S','E','W'].filter(function(d) { return roadDir.includes(d); });
+        const startDir = dirs.length > 0 ? dirs[Math.floor(Math.random() * dirs.length)] : 'E';
+        const d = DIR_DELTA[startDir] || DIR_DELTA['E'];
+
+        const vehicle = {
+          type: type, x: x, y: y,
+          dir: startDir, progress: 0,
+          nextX: x + d.dx, nextY: y + d.dy,
+          stopped: false, stopTimer: 0
+        };
+
+        const nextTile = ST.Grid.getTile(vehicle.nextX, vehicle.nextY);
+        if (!nextTile || nextTile.type !== 'road') {
+          vehicle.nextX = x;
+          vehicle.nextY = y;
+        }
+
+        _vehicles.push(vehicle);
+        return vehicle;
+      },
+
+      remove: function(vehicle) {
+        const idx = _vehicles.indexOf(vehicle);
+        if (idx !== -1) _vehicles.splice(idx, 1);
+      },
+
+      update: function(dt) {
+        const speed = (ST.Audio.getBPM() / 120) * 2.0;
+
+        ST.Buildings.getAll().forEach(function(b) {
+          if (b.flash > 0) b.flash = Math.max(0, b.flash - dt / 0.15);
+        });
+
+        _vehicles.forEach(function(vehicle) {
+          if (vehicle.stopped) {
+            vehicle.stopTimer -= dt;
+            if (vehicle.stopTimer <= 0) {
+              vehicle.stopped = false;
+              _advance(vehicle);
+            }
+            return;
+          }
+
+          vehicle.progress += dt * speed;
+
+          while (vehicle.progress >= 1.0 && !vehicle.stopped) {
+            vehicle.progress -= 1.0;
+            vehicle.x = vehicle.nextX;
+            vehicle.y = vehicle.nextY;
+            _triggerNearby(vehicle);
+            _advance(vehicle);
+            if (vehicle.nextX === vehicle.x && vehicle.nextY === vehicle.y) {
+              vehicle.progress = 0;
+              break;
+            }
+          }
+        });
+      },
+
+      draw: function(ctx) {
+        const { TILE } = ST.Config;
+        _vehicles.forEach(function(vehicle) {
+          const typeDef = TYPES[vehicle.type];
+          const dx = vehicle.nextX - vehicle.x;
+          const dy = vehicle.nextY - vehicle.y;
+          const px = (vehicle.x + dx * vehicle.progress) * TILE + TILE / 2;
+          const py = (vehicle.y + dy * vehicle.progress) * TILE + TILE / 2;
+          const s  = typeDef.size;
+
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(DIR_ANGLE[vehicle.dir] || 0);
+          ctx.fillStyle   = typeDef.color;
+          ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+          ctx.lineWidth   = 1;
+
+          if (vehicle.type === 'bicycle') {
+            ctx.beginPath();
+            ctx.arc(0, 0, s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            ctx.fillRect(-s, -s * 0.6, s * 2, s * 1.2);
+            ctx.strokeRect(-s, -s * 0.6, s * 2, s * 1.2);
+          }
+          ctx.restore();
+        });
+      },
+
+      getAll: function() { return _vehicles.slice(); },
+      count:  function() { return _vehicles.length; }
+    };
+  })();
+
+  // ============================================================
+  // 7. ST.Signs
+  // ============================================================
+  ST.Signs = (function() {
+    console.log('[Signs] initialized');
+
+    const TYPES = {
+      trafficLight: { period: 2.0 },
+      oneWay:       { defaultDir: 'E' },
+      roundabout:   {}
+    };
+
+    const DIR_CLOCKWISE = { N:'E', E:'S', S:'W', W:'N' };
+
+    return {
+      TYPES: TYPES,
+
+      place: function(type, x, y, params) {
+        const tile = ST.Grid.getTile(x, y);
+        if (!tile || tile.type !== 'road') return false;
+        if (!TYPES[type]) return false;
+        const sign = { type: type, x: x, y: y, params: params || {} };
+        ST.Grid.setTile(x, y, { sign: sign });
+        return true;
+      },
+
+      remove: function(x, y) {
+        ST.Grid.setTile(x, y, { sign: null });
+      },
+
+      evaluate: function(vehicle, x, y) {
+        const tile = ST.Grid.getTile(x, y);
+        if (!tile || !tile.sign) return null;
+        const sign = tile.sign;
+
+        if (sign.type === 'trafficLight') {
+          const period = TYPES.trafficLight.period;
+          const phase  = Math.floor(Date.now() / (period * 1000)) % 2;
+          if (phase === 0) return { action: 'stop', duration: period };
+          return null;
+        }
+
+        if (sign.type === 'oneWay') {
+          const dir = (sign.params && sign.params.dir) || TYPES.oneWay.defaultDir;
+          return { action: 'force', direction: dir };
+        }
+
+        if (sign.type === 'roundabout') {
+          return { action: 'force', direction: DIR_CLOCKWISE[vehicle.dir] || vehicle.dir };
+        }
+
+        return null;
+      },
+
+      draw: function(ctx, x, y, sign) {
+        const { TILE } = ST.Config;
+        const px = x * TILE;
+        const py = y * TILE;
+        const cx = px + TILE / 2;
+        const cy = py + TILE / 2;
+
+        if (sign.type === 'trafficLight') {
+          const isRed = Math.floor(Date.now() / (TYPES.trafficLight.period * 1000)) % 2 === 0;
+          ctx.fillStyle = '#1a1a2e';
+          ctx.fillRect(cx - 5, cy - TILE / 3 - 5, 10, 10);
+          ctx.fillStyle = isRed ? '#ef5350' : '#66bb6a';
+          ctx.beginPath();
+          ctx.arc(cx, cy - TILE / 3, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+
+        } else if (sign.type === 'oneWay') {
+          const ARROWS = { N:'↑', S:'↓', E:'→', W:'←' };
+          const dir = (sign.params && sign.params.dir) || 'E';
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(ARROWS[dir] || '→', cx, cy - TILE / 4);
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'alphabetic';
+
+        } else if (sign.type === 'roundabout') {
+          ctx.strokeStyle = 'rgba(100,181,246,0.8)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy - TILE / 4, 5, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        }
+      }
+    };
+  })();
+
+  // ============================================================
   // 11. ST.UI
   // ============================================================
   ST.UI = (function() {
@@ -595,16 +875,26 @@
     let _selectedBuilding = null;
 
     const TOOL_DEFS = [
-      { tool: 'select', label: 'Select', dot: null },
-      { tool: 'road',   label: 'Road',   dot: '#888' },
-      { tool: 'remove', label: 'Remove', dot: '#ef5350' }
+      { tool: 'select', label: 'Select',  dot: null },
+      { tool: 'road',   label: 'Road',    dot: '#888' },
+      { tool: 'remove', label: 'Remove',  dot: '#ef5350' }
     ];
     const BUILDING_DEFS = [
-      { tool: 'sine',     label: 'Sine Wave',  dot: '#64b5f6' },
-      { tool: 'square',   label: 'Square',     dot: '#ef5350' },
-      { tool: 'triangle', label: 'Triangle',   dot: '#66bb6a' },
-      { tool: 'sawtooth', label: 'Sawtooth',   dot: '#ffa726' },
-      { tool: 'pulse',    label: 'Pulse',      dot: '#ab47bc' }
+      { tool: 'sine',     label: 'Sine Wave', dot: '#64b5f6' },
+      { tool: 'square',   label: 'Square',    dot: '#ef5350' },
+      { tool: 'triangle', label: 'Triangle',  dot: '#66bb6a' },
+      { tool: 'sawtooth', label: 'Sawtooth',  dot: '#ffa726' },
+      { tool: 'pulse',    label: 'Pulse',     dot: '#ab47bc' }
+    ];
+    const VEHICLE_DEFS = [
+      { tool: 'car',     label: 'Car',     dot: '#dce0e8' },
+      { tool: 'bicycle', label: 'Bicycle', dot: '#64b5f6' },
+      { tool: 'bus',     label: 'Bus',     dot: '#ffa726' }
+    ];
+    const SIGN_DEFS = [
+      { tool: 'trafficLight', label: 'Traffic Light', dot: '#ef5350' },
+      { tool: 'oneWay',       label: 'One Way',       dot: '#fff' },
+      { tool: 'roundabout',   label: 'Roundabout',    dot: '#64b5f6' }
     ];
 
     function _noteFromHz(hz) {
@@ -638,13 +928,16 @@
         btn.appendChild(document.createTextNode(def.label));
         btn.addEventListener('click', function() { ST.UI.setTool(def.tool); });
         toolbar.appendChild(btn);
-        return btn;
       }
 
       _makeSection('Tools');
       TOOL_DEFS.forEach(_makeBtn);
       _makeSection('Buildings');
       BUILDING_DEFS.forEach(_makeBtn);
+      _makeSection('Vehicles');
+      VEHICLE_DEFS.forEach(_makeBtn);
+      _makeSection('Signs');
+      SIGN_DEFS.forEach(_makeBtn);
     }
 
     function _updateToolBtns() {
@@ -655,72 +948,82 @@
 
     function _onCanvasAction(e) {
       const canvas = document.getElementById('game');
-      const rect = canvas.getBoundingClientRect();
+      const rect   = canvas.getBoundingClientRect();
       const scaleX = (ST.Config.GRID_W * ST.Config.TILE) / rect.width;
       const scaleY = (ST.Config.GRID_H * ST.Config.TILE) / rect.height;
       const gx = Math.floor((e.clientX - rect.left) * scaleX / ST.Config.TILE);
-      const gy = Math.floor((e.clientY - rect.top) * scaleY / ST.Config.TILE);
+      const gy = Math.floor((e.clientY - rect.top)  * scaleY / ST.Config.TILE);
       if (!ST.Grid.isInBounds(gx, gy)) return;
 
       if (_tool === 'road') {
         ST.Roads.place(gx, gy);
+
       } else if (_tool === 'select') {
         const b = ST.Buildings.getAt(gx, gy);
         if (b) { ST.UI.showProperties(b); } else { ST.UI.hideProperties(); }
+
       } else if (_tool === 'remove') {
         const tile = ST.Grid.getTile(gx, gy);
-        if (tile && tile.type === 'road') {
+        if (tile && tile.sign) {
+          ST.Signs.remove(gx, gy);
+        } else if (tile && tile.type === 'road') {
           ST.Roads.remove(gx, gy);
+          ST.Vehicles.getAll().forEach(function(v) {
+            if ((v.x === gx && v.y === gy) || (v.nextX === gx && v.nextY === gy)) {
+              ST.Vehicles.remove(v);
+            }
+          });
         } else if (tile && tile.type === 'building') {
           if (_selectedBuilding && _selectedBuilding.x === gx && _selectedBuilding.y === gy) {
             ST.UI.hideProperties();
           }
           ST.Buildings.remove(gx, gy);
         }
+
+      } else if (ST.Vehicles.TYPES[_tool]) {
+        const tile = ST.Grid.getTile(gx, gy);
+        if (tile && tile.type === 'road') ST.Vehicles.spawn(_tool, gx, gy);
+
+      } else if (ST.Signs.TYPES[_tool]) {
+        const tile = ST.Grid.getTile(gx, gy);
+        if (tile && tile.type === 'road') {
+          const params = _tool === 'oneWay' ? { dir: 'E' } : {};
+          ST.Signs.place(_tool, gx, gy, params);
+        }
+
       } else if (ST.Buildings.TYPES[_tool]) {
         ST.Buildings.create(_tool, gx, gy);
       }
 
-      if (!ST.Game.isPlaying()) {
-        ST.Renderer.drawFrame();
-      }
+      if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
     }
 
     function _setupCanvas() {
       const canvas = document.getElementById('game');
       let _mouseDown = false;
 
-      canvas.addEventListener('mousedown', function(e) {
-        _mouseDown = true;
-        _onCanvasAction(e);
-      });
+      canvas.addEventListener('mousedown', function(e) { _mouseDown = true; _onCanvasAction(e); });
       canvas.addEventListener('mousemove', function(e) {
-        if (_mouseDown && (_tool === 'road' || _tool === 'remove')) {
-          _onCanvasAction(e);
-        }
+        if (_mouseDown && (_tool === 'road' || _tool === 'remove')) _onCanvasAction(e);
       });
-      canvas.addEventListener('mouseup', function() { _mouseDown = false; });
+      canvas.addEventListener('mouseup',    function() { _mouseDown = false; });
       canvas.addEventListener('mouseleave', function() { _mouseDown = false; });
     }
 
     function _setupTransport() {
-      const overlay  = document.getElementById('audio-overlay');
-      const startBtn = document.getElementById('btn-start-audio');
-      const playBtn  = document.getElementById('btn-play');
-      const bpmSlider = document.getElementById('slider-bpm');
+      const overlay    = document.getElementById('audio-overlay');
+      const startBtn   = document.getElementById('btn-start-audio');
+      const playBtn    = document.getElementById('btn-play');
+      const bpmSlider  = document.getElementById('slider-bpm');
       const bpmDisplay = document.getElementById('bpm-display');
 
-      if (startBtn) {
-        startBtn.addEventListener('click', function() {
-          ST.Audio.init();
-          if (overlay) overlay.style.display = 'none';
-        });
-      }
-      if (playBtn) {
-        playBtn.addEventListener('click', function() {
-          ST.Game.isPlaying() ? ST.Game.stop() : ST.Game.start();
-        });
-      }
+      if (startBtn) startBtn.addEventListener('click', function() {
+        ST.Audio.init();
+        if (overlay) overlay.style.display = 'none';
+      });
+      if (playBtn) playBtn.addEventListener('click', function() {
+        ST.Game.isPlaying() ? ST.Game.stop() : ST.Game.start();
+      });
       if (bpmSlider) {
         bpmSlider.value = ST.Audio.getBPM();
         bpmSlider.addEventListener('input', function() {
@@ -829,7 +1132,7 @@
         const bpmSlider  = document.getElementById('slider-bpm');
         const playBtn    = document.getElementById('btn-play');
         if (bpmDisplay) bpmDisplay.textContent = bpm;
-        if (bpmSlider) bpmSlider.value = bpm;
+        if (bpmSlider)  bpmSlider.value = bpm;
         if (playBtn) {
           playBtn.innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
           playBtn.classList.toggle('st-active', playing);
@@ -872,9 +1175,9 @@
         const dpr = window.devicePixelRatio || 1;
         const W = ST.Config.GRID_W * ST.Config.TILE;
         const H = ST.Config.GRID_H * ST.Config.TILE;
-        _canvas.width = W * dpr;
+        _canvas.width  = W * dpr;
         _canvas.height = H * dpr;
-        _canvas.style.width = W + 'px';
+        _canvas.style.width  = W + 'px';
         _canvas.style.height = H + 'px';
         _ctx = _canvas.getContext('2d');
         _ctx.scale(dpr, dpr);
@@ -886,24 +1189,24 @@
         _ctx.fillRect(0, 0, GRID_W * TILE, GRID_H * TILE);
 
         ST.Grid.forEachTile(function(tile, x, y) {
-          if (tile.type === 'road') {
-            ST.Roads.draw(_ctx, x, y, tile);
-          }
+          if (tile.type === 'road') ST.Roads.draw(_ctx, x, y, tile);
         });
 
         ST.Grid.forEachTile(function(tile, x, y) {
-          if (tile.type === 'building' && tile.building) {
-            ST.Buildings.draw(_ctx, tile.building);
-          }
+          if (tile.sign) ST.Signs.draw(_ctx, x, y, tile.sign);
         });
+
+        ST.Grid.forEachTile(function(tile, x, y) {
+          if (tile.type === 'building' && tile.building) ST.Buildings.draw(_ctx, tile.building);
+        });
+
+        ST.Vehicles.draw(_ctx);
 
         _drawGrid();
         _dirty.clear();
       },
 
-      markDirty: function(x, y) {
-        _dirty.add(x + ',' + y);
-      }
+      markDirty: function(x, y) { _dirty.add(x + ',' + y); }
     };
   })();
 
@@ -914,10 +1217,10 @@
     console.log('[Game] initialized');
 
     let _playing = false;
-    let _rafId = null;
+    let _rafId   = null;
     let _lastTime = 0;
     let _frameCount = 0;
-    let _fpsTimer = 0;
+    let _fpsTimer   = 0;
 
     function _loop(timestamp) {
       const dt = Math.min((timestamp - _lastTime) / 1000, 0.1);
@@ -930,15 +1233,14 @@
           const fps = document.getElementById('fps-display');
           if (fps) fps.textContent = _frameCount + ' fps';
           _frameCount = 0;
-          _fpsTimer = 0;
+          _fpsTimer   = 0;
         }
       }
 
+      ST.Vehicles.update(dt);
       ST.Renderer.drawFrame();
 
-      if (_playing) {
-        _rafId = requestAnimationFrame(_loop);
-      }
+      if (_playing) _rafId = requestAnimationFrame(_loop);
     }
 
     return {
