@@ -151,3 +151,15 @@ ST.State.load(slot)                      // boolean
 ST.State.exportURL()                     // void — пишет в location.hash
 ST.State.importURL()                     // boolean — читает из location.hash
 ```
+
+---
+
+## Этап 9 ПОТРЕБЛЯЕТ: всё выше. СОЗДАЁТ:
+
+```javascript
+// === ST.MIDI ===
+ST.MIDI.export()                         // boolean — собирает .mid и инициирует download
+ST.MIDI.exportBlob()                     // Blob|null — вернуть MIDI blob без скачивания
+ST.MIDI.buildTracks()                    // Array — собрать MIDI-события по текущему состоянию
+ST.MIDI.noteFromPitch(hz)                // number — MIDI note number (0..127)
+```
