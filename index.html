@@ -17,11 +17,14 @@
       grid-template-areas:
         "toolbar main properties"
         "transport transport transport";
-      grid-template-columns: 200px 1fr 220px;
+      grid-template-columns: 200px 1fr 0px;
       grid-template-rows: 1fr 64px;
       height: 100vh;
       background: #0a0a12;
       color: #e0e0e0;
+    }
+    #app.st-props-open {
+      grid-template-columns: 200px 1fr 220px;
     }
 
     /* === TOOLBAR === */
@@ -29,10 +32,10 @@
       grid-area: toolbar;
       background: #12122a;
       border-right: 1px solid rgba(255,255,255,0.1);
-      padding: 12px 8px;
+      padding: 8px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
       overflow-y: auto;
     }
     .st-toolbar-section {
@@ -42,6 +45,29 @@
       color: rgba(255,255,255,0.3);
       margin: 8px 4px 4px;
     }
+    .st-tool-btn {
+      background: transparent;
+      color: #e0e0e0;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 7px 10px;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .st-tool-btn:hover { background: rgba(255,255,255,0.06); }
+    .st-tool-btn.st-active { background: rgba(100,181,246,0.15); border-color: #64b5f6; color: #64b5f6; }
+    .st-color-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .st-limit-warn { font-size: 10px; color: #ef5350; padding: 4px 6px; }
 
     /* === MAIN CANVAS === */
     main {
@@ -51,15 +77,40 @@
       align-items: flex-start;
       justify-content: flex-start;
     }
+    #game { display: block; cursor: crosshair; }
 
     /* === PROPERTY PANEL === */
     #properties {
       grid-area: properties;
       background: #12122a;
       border-left: 1px solid rgba(255,255,255,0.1);
-      padding: 12px;
-      overflow-y: auto;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
+    .st-props-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .st-props-title { font-size: 13px; font-weight: 600; flex: 1; }
+    .st-props-close {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.4);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .st-props-close:hover { color: #e0e0e0; background: rgba(255,255,255,0.08); }
+    .st-props-body { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+    .st-props-row { display: flex; flex-direction: column; gap: 4px; }
+    .st-props-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); }
+    .st-props-value { font-size: 12px; color: #e0e0e0; }
+    .st-props-row input[type="range"] { width: 100%; accent-color: #64b5f6; cursor: pointer; }
 
     /* === TRANSPORT BAR === */
     #transport {
@@ -88,27 +139,11 @@
     }
     #btn-play:hover { background: #90caf9; }
     #btn-play.st-active { background: #ef5350; }
-    .st-transport-label {
-      font-size: 11px;
-      color: rgba(255,255,255,0.4);
-      white-space: nowrap;
-    }
-    #slider-bpm {
-      width: 120px;
-      cursor: pointer;
-      accent-color: #64b5f6;
-    }
-    #bpm-display {
-      font-size: 13px;
-      color: #64b5f6;
-      font-weight: 600;
-      min-width: 36px;
-    }
-    #fps-display {
-      font-size: 11px;
-      color: rgba(255,255,255,0.3);
-      margin-left: auto;
-    }
+    .st-transport-label { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+    #slider-bpm { width: 120px; cursor: pointer; accent-color: #64b5f6; }
+    #bpm-display { font-size: 13px; color: #64b5f6; font-weight: 600; min-width: 36px; }
+    #fps-display { font-size: 11px; color: rgba(255,255,255,0.3); margin-left: auto; }
+    #status-display { font-size: 11px; color: rgba(255,255,255,0.3); }
 
     /* === MODALS & OVERLAYS === */
     #audio-overlay {
@@ -146,9 +181,7 @@
   </div>
 
   <div id="app">
-    <aside id="toolbar">
-      <div class="st-toolbar-section">Tools</div>
-    </aside>
+    <aside id="toolbar"></aside>
     <main><canvas id="game"></canvas></main>
     <aside id="properties"></aside>
     <footer id="transport">
@@ -156,6 +189,7 @@
       <span class="st-transport-label">BPM</span>
       <input id="slider-bpm" type="range" min="60" max="180" value="120">
       <span id="bpm-display">120</span>
+      <span id="status-display"></span>
       <span id="fps-display"></span>
     </footer>
   </div>
@@ -178,6 +212,8 @@
       BPM_MAX: 180,
       MAX_VEHICLES: 8,
       MAX_VOICES: 8,
+      MAX_BUILDINGS: 50,
+      MAX_ROADS: 200,
       DEV: false,
       COLORS: {
         bg: '#0a0a12',
@@ -245,21 +281,10 @@
         _bpm = Math.max(ST.Config.BPM_MIN, Math.min(ST.Config.BPM_MAX, bpm));
       },
 
-      getBPM: function() {
-        return _bpm;
-      },
-
-      isReady: function() {
-        return _ctx !== null && _ctx.state !== 'suspended';
-      },
-
-      getContext: function() {
-        return _ctx;
-      },
-
-      getMasterGain: function() {
-        return _masterGain;
-      }
+      getBPM: function() { return _bpm; },
+      isReady: function() { return _ctx !== null && _ctx.state !== 'suspended'; },
+      getContext: function() { return _ctx; },
+      getMasterGain: function() { return _masterGain; }
     };
   })();
 
@@ -299,8 +324,8 @@
       getNeighbors: function(x, y) {
         const DIRS = [
           { dx: 0, dy: -1, dir: 'N' },
-          { dx: 0, dy: 1, dir: 'S' },
-          { dx: 1, dy: 0, dir: 'E' },
+          { dx: 0, dy: 1,  dir: 'S' },
+          { dx: 1, dy: 0,  dir: 'E' },
           { dx: -1, dy: 0, dir: 'W' }
         ];
         const result = [];
@@ -329,7 +354,492 @@
   })();
 
   // ============================================================
-  // 4. ST.Renderer
+  // 4. ST.Buildings
+  // ============================================================
+  ST.Buildings = (function() {
+    console.log('[Buildings] initialized');
+
+    const TYPES = {
+      sine:     { waveform: 'sine',     color: '#64b5f6', decay: 1.2,  pitchDefault: 261.63, widthRatio: 0.80, minH: 0.4, maxH: 1.5 },
+      square:   { waveform: 'square',   color: '#ef5350', decay: 0.3,  pitchDefault: 196.00, widthRatio: 0.90, minH: 0.3, maxH: 1.2 },
+      triangle: { waveform: 'triangle', color: '#66bb6a', decay: 0.8,  pitchDefault: 329.63, widthRatio: 0.60, minH: 0.6, maxH: 2.0 },
+      sawtooth: { waveform: 'sawtooth', color: '#ffa726', decay: 0.5,  pitchDefault: 220.00, widthRatio: 0.90, minH: 0.4, maxH: 1.4 },
+      pulse:    { waveform: 'square',   color: '#ab47bc', decay: 0.15, pitchDefault: 523.25, widthRatio: 0.30, minH: 0.8, maxH: 2.5 }
+    };
+
+    const _buildings = [];
+
+    function _drawSine(ctx, bx, by, bw, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(bx + bw / 2, by, bw / 2, Math.PI, 0);
+      ctx.fill();
+    }
+
+    function _drawSquare(ctx, bx, by, bw, color) {
+      ctx.fillStyle = color;
+      const chimneyW = Math.max(3, Math.round(bw * 0.15));
+      ctx.fillRect(bx + bw * 0.65, by - 7, chimneyW, 7);
+    }
+
+    function _drawTriangle(ctx, bx, by, bw, bh, color) {
+      ctx.fillStyle = color;
+      const spikeH = Math.round(bh * 0.55);
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + bw / 2, by - spikeH);
+      ctx.lineTo(bx + bw, by);
+      ctx.fill();
+    }
+
+    function _drawSawtooth(ctx, bx, by, bw, color) {
+      ctx.fillStyle = color;
+      const stepW = Math.round(bw / 3);
+      ctx.fillRect(bx,              by - 7, stepW, 7);
+      ctx.fillRect(bx + stepW,      by - 4, stepW, 4);
+      ctx.fillRect(bx + stepW * 2,  by - 2, stepW, 2);
+    }
+
+    function _drawPulse(ctx, bx, by, bw, color) {
+      const cx = bx + bw / 2;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, by);
+      ctx.lineTo(cx, by - 12);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = 'rgba(171,71,188,0.5)';
+      ctx.beginPath();
+      ctx.arc(cx, by - 12, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    return {
+      TYPES: TYPES,
+
+      create: function(type, x, y) {
+        const tile = ST.Grid.getTile(x, y);
+        if (!tile || tile.type !== 'empty') return null;
+        if (_buildings.length >= ST.Config.MAX_BUILDINGS) return null;
+        const def = TYPES[type];
+        if (!def) return null;
+        const building = {
+          type: type, x: x, y: y,
+          waveform: def.waveform, color: def.color,
+          pitch: def.pitchDefault, decay: def.decay, level: 1, flash: 0
+        };
+        _buildings.push(building);
+        ST.Grid.setTile(x, y, { type: 'building', building: building });
+        return building;
+      },
+
+      remove: function(x, y) {
+        const tile = ST.Grid.getTile(x, y);
+        if (!tile || tile.type !== 'building') return;
+        const idx = _buildings.indexOf(tile.building);
+        if (idx !== -1) _buildings.splice(idx, 1);
+        ST.Grid.setTile(x, y, { type: 'empty', building: null });
+      },
+
+      draw: function(ctx, b) {
+        const { TILE } = ST.Config;
+        const def = TYPES[b.type];
+        if (!def) return;
+        const t = (b.level - 1) / 7;
+        const bw = Math.round(def.widthRatio * TILE);
+        const bh = Math.round((def.minH + t * (def.maxH - def.minH)) * TILE);
+        const bx = b.x * TILE + Math.round((TILE - bw) / 2);
+        const by = b.y * TILE + TILE - 2;
+
+        if (b.flash > 0) {
+          ctx.save();
+          ctx.shadowColor = b.color;
+          ctx.shadowBlur = 4 + b.flash * 16;
+        }
+
+        ctx.fillStyle = b.color;
+        ctx.fillRect(bx, by - bh, bw, bh);
+
+        if (b.type === 'sine')     _drawSine(ctx, bx, by - bh, bw, b.color);
+        if (b.type === 'square')   _drawSquare(ctx, bx, by - bh, bw, b.color);
+        if (b.type === 'triangle') _drawTriangle(ctx, bx, by - bh, bw, bh, b.color);
+        if (b.type === 'sawtooth') _drawSawtooth(ctx, bx, by - bh, bw, b.color);
+        if (b.type === 'pulse')    _drawPulse(ctx, bx, by - bh, bw, b.color);
+
+        if (b.flash > 0) ctx.restore();
+      },
+
+      getAt: function(x, y) {
+        const tile = ST.Grid.getTile(x, y);
+        if (!tile || tile.type !== 'building') return null;
+        return tile.building;
+      },
+
+      getProperties: function(b) {
+        return { pitch: b.pitch, decay: b.decay, waveform: b.waveform, color: b.color, level: b.level };
+      },
+
+      setProperty: function(b, key, val) {
+        b[key] = val;
+      },
+
+      count: function() { return _buildings.length; },
+      getAll: function() { return _buildings.slice(); }
+    };
+  })();
+
+  // ============================================================
+  // 5. ST.Roads
+  // ============================================================
+  ST.Roads = (function() {
+    console.log('[Roads] initialized');
+
+    const DIR_DELTA = { N: { dx: 0, dy: -1 }, S: { dx: 0, dy: 1 }, E: { dx: 1, dy: 0 }, W: { dx: -1, dy: 0 } };
+    let _count = 0;
+
+    function _recalcDir(x, y) {
+      const tile = ST.Grid.getTile(x, y);
+      if (!tile || tile.type !== 'road') return;
+      let dir = '';
+      ST.Grid.getNeighbors(x, y).forEach(function(nb) {
+        if (nb.tile.type === 'road') dir += nb.dir;
+      });
+      ST.Grid.setTile(x, y, { roadDir: dir });
+    }
+
+    return {
+      place: function(x, y) {
+        const tile = ST.Grid.getTile(x, y);
+        if (!tile || tile.type !== 'empty') return false;
+        if (_count >= ST.Config.MAX_ROADS) return false;
+        ST.Grid.setTile(x, y, { type: 'road', roadDir: '' });
+        _count++;
+        this.autoConnect(x, y);
+        return true;
+      },
+
+      remove: function(x, y) {
+        const tile = ST.Grid.getTile(x, y);
+        if (!tile || tile.type !== 'road') return;
+        ST.Grid.setTile(x, y, { type: 'empty', roadDir: null, building: null });
+        _count--;
+        ST.Grid.getNeighbors(x, y).forEach(function(nb) {
+          if (nb.tile.type === 'road') _recalcDir(nb.x, nb.y);
+        });
+      },
+
+      autoConnect: function(x, y) {
+        _recalcDir(x, y);
+        ST.Grid.getNeighbors(x, y).forEach(function(nb) {
+          if (nb.tile.type === 'road') _recalcDir(nb.x, nb.y);
+        });
+      },
+
+      getNextTile: function(x, y, dir) {
+        const d = DIR_DELTA[dir];
+        if (!d) return null;
+        const nx = x + d.dx;
+        const ny = y + d.dy;
+        const tile = ST.Grid.getTile(nx, ny);
+        if (!tile || tile.type !== 'road') return null;
+        return { x: nx, y: ny, dir: dir };
+      },
+
+      draw: function(ctx, x, y, tile) {
+        const { TILE, COLORS } = ST.Config;
+        const px = x * TILE;
+        const py = y * TILE;
+        ctx.fillStyle = COLORS.road;
+        ctx.fillRect(px, py, TILE, TILE);
+
+        const dir = tile.roadDir || '';
+        const hasN = dir.includes('N');
+        const hasS = dir.includes('S');
+        const hasE = dir.includes('E');
+        const hasW = dir.includes('W');
+        const isolated = !hasN && !hasS && !hasE && !hasW;
+        const cx = px + TILE / 2;
+        const cy = py + TILE / 2;
+
+        ctx.strokeStyle = COLORS.roadLine;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+
+        if (hasN || hasS || isolated) {
+          ctx.beginPath();
+          ctx.moveTo(cx, hasN ? py : cy);
+          ctx.lineTo(cx, hasS ? py + TILE : cy);
+          ctx.stroke();
+        }
+        if (hasE || hasW || isolated) {
+          ctx.beginPath();
+          ctx.moveTo(hasW ? px : cx, cy);
+          ctx.lineTo(hasE ? px + TILE : cx, cy);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      },
+
+      count: function() { return _count; }
+    };
+  })();
+
+  // ============================================================
+  // 11. ST.UI
+  // ============================================================
+  ST.UI = (function() {
+    console.log('[UI] initialized');
+
+    let _tool = 'road';
+    let _selectedBuilding = null;
+
+    const TOOL_DEFS = [
+      { tool: 'select', label: 'Select', dot: null },
+      { tool: 'road',   label: 'Road',   dot: '#888' },
+      { tool: 'remove', label: 'Remove', dot: '#ef5350' }
+    ];
+    const BUILDING_DEFS = [
+      { tool: 'sine',     label: 'Sine Wave',  dot: '#64b5f6' },
+      { tool: 'square',   label: 'Square',     dot: '#ef5350' },
+      { tool: 'triangle', label: 'Triangle',   dot: '#66bb6a' },
+      { tool: 'sawtooth', label: 'Sawtooth',   dot: '#ffa726' },
+      { tool: 'pulse',    label: 'Pulse',      dot: '#ab47bc' }
+    ];
+
+    function _noteFromHz(hz) {
+      const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+      const n = Math.round(12 * Math.log2(hz / 440)) + 69;
+      const octave = Math.floor(n / 12) - 1;
+      return NOTES[((n % 12) + 12) % 12] + octave + ' (' + Math.round(hz) + 'Hz)';
+    }
+
+    function _buildToolbar() {
+      const toolbar = document.getElementById('toolbar');
+      toolbar.innerHTML = '';
+
+      function _makeSection(label) {
+        const el = document.createElement('div');
+        el.className = 'st-toolbar-section';
+        el.textContent = label;
+        toolbar.appendChild(el);
+      }
+
+      function _makeBtn(def) {
+        const btn = document.createElement('button');
+        btn.className = 'st-tool-btn';
+        btn.dataset.tool = def.tool;
+        if (def.dot) {
+          const dot = document.createElement('span');
+          dot.className = 'st-color-dot';
+          dot.style.background = def.dot;
+          btn.appendChild(dot);
+        }
+        btn.appendChild(document.createTextNode(def.label));
+        btn.addEventListener('click', function() { ST.UI.setTool(def.tool); });
+        toolbar.appendChild(btn);
+        return btn;
+      }
+
+      _makeSection('Tools');
+      TOOL_DEFS.forEach(_makeBtn);
+      _makeSection('Buildings');
+      BUILDING_DEFS.forEach(_makeBtn);
+    }
+
+    function _updateToolBtns() {
+      document.querySelectorAll('.st-tool-btn').forEach(function(btn) {
+        btn.classList.toggle('st-active', btn.dataset.tool === _tool);
+      });
+    }
+
+    function _onCanvasAction(e) {
+      const canvas = document.getElementById('game');
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = (ST.Config.GRID_W * ST.Config.TILE) / rect.width;
+      const scaleY = (ST.Config.GRID_H * ST.Config.TILE) / rect.height;
+      const gx = Math.floor((e.clientX - rect.left) * scaleX / ST.Config.TILE);
+      const gy = Math.floor((e.clientY - rect.top) * scaleY / ST.Config.TILE);
+      if (!ST.Grid.isInBounds(gx, gy)) return;
+
+      if (_tool === 'road') {
+        ST.Roads.place(gx, gy);
+      } else if (_tool === 'select') {
+        const b = ST.Buildings.getAt(gx, gy);
+        if (b) { ST.UI.showProperties(b); } else { ST.UI.hideProperties(); }
+      } else if (_tool === 'remove') {
+        const tile = ST.Grid.getTile(gx, gy);
+        if (tile && tile.type === 'road') {
+          ST.Roads.remove(gx, gy);
+        } else if (tile && tile.type === 'building') {
+          if (_selectedBuilding && _selectedBuilding.x === gx && _selectedBuilding.y === gy) {
+            ST.UI.hideProperties();
+          }
+          ST.Buildings.remove(gx, gy);
+        }
+      } else if (ST.Buildings.TYPES[_tool]) {
+        ST.Buildings.create(_tool, gx, gy);
+      }
+
+      if (!ST.Game.isPlaying()) {
+        ST.Renderer.drawFrame();
+      }
+    }
+
+    function _setupCanvas() {
+      const canvas = document.getElementById('game');
+      let _mouseDown = false;
+
+      canvas.addEventListener('mousedown', function(e) {
+        _mouseDown = true;
+        _onCanvasAction(e);
+      });
+      canvas.addEventListener('mousemove', function(e) {
+        if (_mouseDown && (_tool === 'road' || _tool === 'remove')) {
+          _onCanvasAction(e);
+        }
+      });
+      canvas.addEventListener('mouseup', function() { _mouseDown = false; });
+      canvas.addEventListener('mouseleave', function() { _mouseDown = false; });
+    }
+
+    function _setupTransport() {
+      const overlay  = document.getElementById('audio-overlay');
+      const startBtn = document.getElementById('btn-start-audio');
+      const playBtn  = document.getElementById('btn-play');
+      const bpmSlider = document.getElementById('slider-bpm');
+      const bpmDisplay = document.getElementById('bpm-display');
+
+      if (startBtn) {
+        startBtn.addEventListener('click', function() {
+          ST.Audio.init();
+          if (overlay) overlay.style.display = 'none';
+        });
+      }
+      if (playBtn) {
+        playBtn.addEventListener('click', function() {
+          ST.Game.isPlaying() ? ST.Game.stop() : ST.Game.start();
+        });
+      }
+      if (bpmSlider) {
+        bpmSlider.value = ST.Audio.getBPM();
+        bpmSlider.addEventListener('input', function() {
+          ST.Audio.setBPM(parseInt(this.value, 10));
+          if (bpmDisplay) bpmDisplay.textContent = ST.Audio.getBPM();
+        });
+      }
+      if (bpmDisplay) bpmDisplay.textContent = ST.Audio.getBPM();
+    }
+
+    return {
+      init: function() {
+        _buildToolbar();
+        _setupCanvas();
+        _setupTransport();
+        _updateToolBtns();
+      },
+
+      setTool: function(toolName) {
+        _tool = toolName;
+        _updateToolBtns();
+        const canvas = document.getElementById('game');
+        if (canvas) canvas.style.cursor = toolName === 'select' ? 'pointer' : 'crosshair';
+      },
+
+      getTool: function() { return _tool; },
+
+      showProperties: function(building) {
+        _selectedBuilding = building;
+        const panel = document.getElementById('properties');
+        const app   = document.getElementById('app');
+        if (!panel) return;
+
+        const props = ST.Buildings.getProperties(building);
+        panel.innerHTML = '';
+
+        const header = document.createElement('div');
+        header.className = 'st-props-header';
+        const dot = document.createElement('span');
+        dot.className = 'st-color-dot';
+        dot.style.background = props.color;
+        const title = document.createElement('span');
+        title.className = 'st-props-title';
+        title.textContent = building.type.charAt(0).toUpperCase() + building.type.slice(1) + ' Wave';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'st-props-close';
+        closeBtn.textContent = '×';
+        closeBtn.addEventListener('click', function() { ST.UI.hideProperties(); });
+        header.appendChild(dot);
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        panel.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'st-props-body';
+
+        function _addRow(labelText, content) {
+          const row = document.createElement('div');
+          row.className = 'st-props-row';
+          const lbl = document.createElement('div');
+          lbl.className = 'st-props-label';
+          lbl.textContent = labelText;
+          row.appendChild(lbl);
+          row.appendChild(content);
+          body.appendChild(row);
+        }
+
+        const pitchSlider = document.createElement('input');
+        pitchSlider.type = 'range';
+        pitchSlider.min = 65; pitchSlider.max = 1047;
+        pitchSlider.value = Math.round(props.pitch);
+        const pitchVal = document.createElement('div');
+        pitchVal.className = 'st-props-value';
+        pitchVal.textContent = _noteFromHz(props.pitch);
+        pitchSlider.addEventListener('input', function() {
+          ST.Buildings.setProperty(building, 'pitch', parseFloat(this.value));
+          pitchVal.textContent = _noteFromHz(parseFloat(this.value));
+        });
+        _addRow('Pitch', pitchSlider);
+        _addRow('', pitchVal);
+
+        const decayEl = document.createElement('div');
+        decayEl.className = 'st-props-value';
+        decayEl.textContent = props.decay + 's';
+        _addRow('Decay', decayEl);
+
+        const levelEl = document.createElement('div');
+        levelEl.className = 'st-props-value';
+        levelEl.textContent = 'Lv ' + props.level;
+        _addRow('Level', levelEl);
+
+        panel.appendChild(body);
+        if (app) app.style.gridTemplateColumns = '200px 1fr 220px';
+      },
+
+      hideProperties: function() {
+        _selectedBuilding = null;
+        const panel = document.getElementById('properties');
+        const app   = document.getElementById('app');
+        if (panel) panel.innerHTML = '';
+        if (app) app.style.gridTemplateColumns = '200px 1fr 0px';
+      },
+
+      updateTransport: function(bpm, playing) {
+        const bpmDisplay = document.getElementById('bpm-display');
+        const bpmSlider  = document.getElementById('slider-bpm');
+        const playBtn    = document.getElementById('btn-play');
+        if (bpmDisplay) bpmDisplay.textContent = bpm;
+        if (bpmSlider) bpmSlider.value = bpm;
+        if (playBtn) {
+          playBtn.innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
+          playBtn.classList.toggle('st-active', playing);
+        }
+      }
+    };
+  })();
+
+  // ============================================================
+  // 13. ST.Renderer
   // ============================================================
   ST.Renderer = (function() {
     console.log('[Renderer] initialized');
@@ -356,22 +866,6 @@
       }
     }
 
-    function _drawTile(x, y) {
-      const { TILE, COLORS } = ST.Config;
-      const tile = ST.Grid.getTile(x, y);
-      if (!tile) return;
-      const px = x * TILE;
-      const py = y * TILE;
-
-      if (tile.type === 'road') {
-        _ctx.fillStyle = COLORS.road;
-        _ctx.fillRect(px, py, TILE, TILE);
-      } else if (tile.type === 'building' && tile.building) {
-        _ctx.fillStyle = tile.building.color || COLORS.accent;
-        _ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
-      }
-    }
-
     return {
       init: function(canvasElement) {
         _canvas = canvasElement;
@@ -392,7 +886,15 @@
         _ctx.fillRect(0, 0, GRID_W * TILE, GRID_H * TILE);
 
         ST.Grid.forEachTile(function(tile, x, y) {
-          _drawTile(x, y);
+          if (tile.type === 'road') {
+            ST.Roads.draw(_ctx, x, y, tile);
+          }
+        });
+
+        ST.Grid.forEachTile(function(tile, x, y) {
+          if (tile.type === 'building' && tile.building) {
+            ST.Buildings.draw(_ctx, tile.building);
+          }
         });
 
         _drawGrid();
@@ -406,7 +908,7 @@
   })();
 
   // ============================================================
-  // 5. ST.Game
+  // 14. ST.Game
   // ============================================================
   ST.Game = (function() {
     console.log('[Game] initialized');
@@ -439,61 +941,12 @@
       }
     }
 
-    function _updatePlayBtn() {
-      const btn = document.getElementById('btn-play');
-      if (!btn) return;
-      if (_playing) {
-        btn.innerHTML = '&#9646;&#9646;';
-        btn.classList.add('st-active');
-      } else {
-        btn.innerHTML = '&#9654;';
-        btn.classList.remove('st-active');
-      }
-    }
-
-    function _setupUI() {
-      const overlay = document.getElementById('audio-overlay');
-      const startBtn = document.getElementById('btn-start-audio');
-      const playBtn = document.getElementById('btn-play');
-      const bpmSlider = document.getElementById('slider-bpm');
-      const bpmDisplay = document.getElementById('bpm-display');
-
-      if (startBtn) {
-        startBtn.addEventListener('click', function() {
-          ST.Audio.init();
-          if (overlay) overlay.style.display = 'none';
-        });
-      }
-
-      if (playBtn) {
-        playBtn.addEventListener('click', function() {
-          if (ST.Game.isPlaying()) {
-            ST.Game.stop();
-          } else {
-            ST.Game.start();
-          }
-        });
-      }
-
-      if (bpmSlider) {
-        bpmSlider.value = ST.Audio.getBPM();
-        bpmSlider.addEventListener('input', function() {
-          ST.Audio.setBPM(parseInt(this.value, 10));
-          if (bpmDisplay) bpmDisplay.textContent = ST.Audio.getBPM();
-        });
-      }
-
-      if (bpmDisplay) {
-        bpmDisplay.textContent = ST.Audio.getBPM();
-      }
-    }
-
     return {
       init: function() {
         ST.Grid.init();
         ST.Renderer.init(document.getElementById('game'));
+        ST.UI.init();
         ST.Renderer.drawFrame();
-        _setupUI();
       },
 
       start: function() {
@@ -501,23 +954,18 @@
         _playing = true;
         _lastTime = performance.now();
         _rafId = requestAnimationFrame(_loop);
-        _updatePlayBtn();
+        ST.UI.updateTransport(ST.Audio.getBPM(), true);
       },
 
       stop: function() {
         if (!_playing) return;
         _playing = false;
-        if (_rafId) {
-          cancelAnimationFrame(_rafId);
-          _rafId = null;
-        }
+        if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
         ST.Renderer.drawFrame();
-        _updatePlayBtn();
+        ST.UI.updateTransport(ST.Audio.getBPM(), false);
       },
 
-      isPlaying: function() {
-        return _playing;
-      }
+      isPlaying: function() { return _playing; }
     };
   })();
 
