@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synth Town</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* === RESET === */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; font-family: 'Inter', sans-serif; }
+
+    /* === LAYOUT === */
+    #app {
+      display: grid;
+      grid-template-areas:
+        "toolbar main properties"
+        "transport transport transport";
+      grid-template-columns: 200px 1fr 220px;
+      grid-template-rows: 1fr 64px;
+      height: 100vh;
+      background: #0a0a12;
+      color: #e0e0e0;
+    }
+
+    /* === TOOLBAR === */
+    #toolbar {
+      grid-area: toolbar;
+      background: #12122a;
+      border-right: 1px solid rgba(255,255,255,0.1);
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow-y: auto;
+    }
+    .st-toolbar-section {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.3);
+      margin: 8px 4px 4px;
+    }
+
+    /* === MAIN CANVAS === */
+    main {
+      grid-area: main;
+      overflow: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+
+    /* === PROPERTY PANEL === */
+    #properties {
+      grid-area: properties;
+      background: #12122a;
+      border-left: 1px solid rgba(255,255,255,0.1);
+      padding: 12px;
+      overflow-y: auto;
+    }
+
+    /* === TRANSPORT BAR === */
+    #transport {
+      grid-area: transport;
+      background: #12122a;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+    }
+    #btn-play {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #64b5f6;
+      color: #0a0a12;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #btn-play:hover { background: #90caf9; }
+    #btn-play.st-active { background: #ef5350; }
+    .st-transport-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      white-space: nowrap;
+    }
+    #slider-bpm {
+      width: 120px;
+      cursor: pointer;
+      accent-color: #64b5f6;
+    }
+    #bpm-display {
+      font-size: 13px;
+      color: #64b5f6;
+      font-weight: 600;
+      min-width: 36px;
+    }
+    #fps-display {
+      font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      margin-left: auto;
+    }
+
+    /* === MODALS & OVERLAYS === */
+    #audio-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10,10,18,0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      gap: 16px;
+    }
+    #audio-overlay h2 { font-size: 24px; color: #64b5f6; }
+    #audio-overlay p { font-size: 14px; color: rgba(255,255,255,0.4); }
+    #btn-start-audio {
+      background: #64b5f6;
+      color: #0a0a12;
+      border: none;
+      padding: 12px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #btn-start-audio:hover { background: #90caf9; }
+  </style>
+</head>
+<body>
+
+  <div id="audio-overlay">
+    <h2>Synth Town</h2>
+    <p>A city that plays music</p>
+    <button id="btn-start-audio">Start Audio</button>
+  </div>
+
+  <div id="app">
+    <aside id="toolbar">
+      <div class="st-toolbar-section">Tools</div>
+    </aside>
+    <main><canvas id="game"></canvas></main>
+    <aside id="properties"></aside>
+    <footer id="transport">
+      <button id="btn-play">&#9654;</button>
+      <span class="st-transport-label">BPM</span>
+      <input id="slider-bpm" type="range" min="60" max="180" value="120">
+      <span id="bpm-display">120</span>
+      <span id="fps-display"></span>
+    </footer>
+  </div>
+
+  <script>
+  'use strict';
+  const ST = {};
+
+  // ============================================================
+  // 1. ST.Config
+  // ============================================================
+  ST.Config = (function() {
+    console.log('[Config] initialized');
+    return {
+      TILE: 32,
+      GRID_W: 20,
+      GRID_H: 15,
+      BPM_DEFAULT: 120,
+      BPM_MIN: 60,
+      BPM_MAX: 180,
+      MAX_VEHICLES: 8,
+      MAX_VOICES: 8,
+      DEV: false,
+      COLORS: {
+        bg: '#0a0a12',
+        grid: 'rgba(255,255,255,0.05)',
+        road: '#1a1a2e',
+        roadLine: 'rgba(255,255,255,0.4)',
+        ui: '#12122a',
+        border: 'rgba(255,255,255,0.1)',
+        text: '#e0e0e0',
+        accent: '#64b5f6'
+      }
+    };
+  })();
+
+  // ============================================================
+  // 2. ST.Audio
+  // ============================================================
+  ST.Audio = (function() {
+    console.log('[Audio] initialized');
+
+    let _ctx = null;
+    let _masterGain = null;
+    let _bpm = ST.Config.BPM_DEFAULT;
+
+    return {
+      onTrigger: null,
+
+      init: function() {
+        if (_ctx) return;
+        _ctx = new (window.AudioContext || window.webkitAudioContext)();
+        _masterGain = _ctx.createGain();
+        _masterGain.gain.value = 0.8;
+        _masterGain.connect(_ctx.destination);
+        console.log('[Audio] AudioContext created, state:', _ctx.state);
+      },
+
+      trigger: function(params) {
+        if (!_ctx || _ctx.state === 'suspended') return;
+        const waveform = params.waveform || 'sine';
+        const pitch = params.pitch || 440;
+        const decay = params.decay || 0.5;
+        const velocity = params.velocity !== undefined ? params.velocity : 1.0;
+        const now = _ctx.currentTime;
+
+        const osc = _ctx.createOscillator();
+        const env = _ctx.createGain();
+        osc.type = waveform;
+        osc.frequency.value = pitch;
+        env.gain.setValueAtTime(0.4 * velocity, now);
+        env.gain.exponentialRampToValueAtTime(0.001, now + decay);
+        osc.connect(env);
+        env.connect(_masterGain);
+        osc.start(now);
+        osc.stop(now + decay + 0.05);
+
+        if (typeof ST.Audio.onTrigger === 'function') {
+          ST.Audio.onTrigger(params);
+        }
+        if (ST.Config.DEV) {
+          console.log('[Audio] trigger:', waveform, pitch);
+        }
+      },
+
+      setBPM: function(bpm) {
+        _bpm = Math.max(ST.Config.BPM_MIN, Math.min(ST.Config.BPM_MAX, bpm));
+      },
+
+      getBPM: function() {
+        return _bpm;
+      },
+
+      isReady: function() {
+        return _ctx !== null && _ctx.state !== 'suspended';
+      },
+
+      getContext: function() {
+        return _ctx;
+      },
+
+      getMasterGain: function() {
+        return _masterGain;
+      }
+    };
+  })();
+
+  // ============================================================
+  // 3. ST.Grid
+  // ============================================================
+  ST.Grid = (function() {
+    console.log('[Grid] initialized');
+
+    let _tiles = null;
+
+    function _makeTile() {
+      return { type: 'empty', roadDir: null, building: null };
+    }
+
+    return {
+      init: function() {
+        _tiles = [];
+        for (let y = 0; y < ST.Config.GRID_H; y++) {
+          _tiles[y] = [];
+          for (let x = 0; x < ST.Config.GRID_W; x++) {
+            _tiles[y][x] = _makeTile();
+          }
+        }
+      },
+
+      getTile: function(x, y) {
+        if (!this.isInBounds(x, y)) return null;
+        return _tiles[y][x];
+      },
+
+      setTile: function(x, y, data) {
+        if (!this.isInBounds(x, y)) return;
+        Object.assign(_tiles[y][x], data);
+      },
+
+      getNeighbors: function(x, y) {
+        const DIRS = [
+          { dx: 0, dy: -1, dir: 'N' },
+          { dx: 0, dy: 1, dir: 'S' },
+          { dx: 1, dy: 0, dir: 'E' },
+          { dx: -1, dy: 0, dir: 'W' }
+        ];
+        const result = [];
+        DIRS.forEach(function(d) {
+          const nx = x + d.dx;
+          const ny = y + d.dy;
+          if (ST.Grid.isInBounds(nx, ny)) {
+            result.push({ tile: _tiles[ny][nx], x: nx, y: ny, dir: d.dir });
+          }
+        });
+        return result;
+      },
+
+      isInBounds: function(x, y) {
+        return x >= 0 && x < ST.Config.GRID_W && y >= 0 && y < ST.Config.GRID_H;
+      },
+
+      forEachTile: function(callback) {
+        for (let y = 0; y < ST.Config.GRID_H; y++) {
+          for (let x = 0; x < ST.Config.GRID_W; x++) {
+            callback(_tiles[y][x], x, y);
+          }
+        }
+      }
+    };
+  })();
+
+  // ============================================================
+  // 4. ST.Renderer
+  // ============================================================
+  ST.Renderer = (function() {
+    console.log('[Renderer] initialized');
+
+    let _canvas = null;
+    let _ctx = null;
+    const _dirty = new Set();
+
+    function _drawGrid() {
+      const { TILE, GRID_W, GRID_H, COLORS } = ST.Config;
+      _ctx.strokeStyle = COLORS.grid;
+      _ctx.lineWidth = 1;
+      for (let x = 0; x <= GRID_W; x++) {
+        _ctx.beginPath();
+        _ctx.moveTo(x * TILE + 0.5, 0);
+        _ctx.lineTo(x * TILE + 0.5, GRID_H * TILE);
+        _ctx.stroke();
+      }
+      for (let y = 0; y <= GRID_H; y++) {
+        _ctx.beginPath();
+        _ctx.moveTo(0, y * TILE + 0.5);
+        _ctx.lineTo(GRID_W * TILE, y * TILE + 0.5);
+        _ctx.stroke();
+      }
+    }
+
+    function _drawTile(x, y) {
+      const { TILE, COLORS } = ST.Config;
+      const tile = ST.Grid.getTile(x, y);
+      if (!tile) return;
+      const px = x * TILE;
+      const py = y * TILE;
+
+      if (tile.type === 'road') {
+        _ctx.fillStyle = COLORS.road;
+        _ctx.fillRect(px, py, TILE, TILE);
+      } else if (tile.type === 'building' && tile.building) {
+        _ctx.fillStyle = tile.building.color || COLORS.accent;
+        _ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
+      }
+    }
+
+    return {
+      init: function(canvasElement) {
+        _canvas = canvasElement;
+        const dpr = window.devicePixelRatio || 1;
+        const W = ST.Config.GRID_W * ST.Config.TILE;
+        const H = ST.Config.GRID_H * ST.Config.TILE;
+        _canvas.width = W * dpr;
+        _canvas.height = H * dpr;
+        _canvas.style.width = W + 'px';
+        _canvas.style.height = H + 'px';
+        _ctx = _canvas.getContext('2d');
+        _ctx.scale(dpr, dpr);
+      },
+
+      drawFrame: function() {
+        const { GRID_W, GRID_H, TILE, COLORS } = ST.Config;
+        _ctx.fillStyle = COLORS.bg;
+        _ctx.fillRect(0, 0, GRID_W * TILE, GRID_H * TILE);
+
+        ST.Grid.forEachTile(function(tile, x, y) {
+          _drawTile(x, y);
+        });
+
+        _drawGrid();
+        _dirty.clear();
+      },
+
+      markDirty: function(x, y) {
+        _dirty.add(x + ',' + y);
+      }
+    };
+  })();
+
+  // ============================================================
+  // 5. ST.Game
+  // ============================================================
+  ST.Game = (function() {
+    console.log('[Game] initialized');
+
+    let _playing = false;
+    let _rafId = null;
+    let _lastTime = 0;
+    let _frameCount = 0;
+    let _fpsTimer = 0;
+
+    function _loop(timestamp) {
+      const dt = Math.min((timestamp - _lastTime) / 1000, 0.1);
+      _lastTime = timestamp;
+
+      if (ST.Config.DEV) {
+        _frameCount++;
+        _fpsTimer += dt;
+        if (_fpsTimer >= 1) {
+          const fps = document.getElementById('fps-display');
+          if (fps) fps.textContent = _frameCount + ' fps';
+          _frameCount = 0;
+          _fpsTimer = 0;
+        }
+      }
+
+      ST.Renderer.drawFrame();
+
+      if (_playing) {
+        _rafId = requestAnimationFrame(_loop);
+      }
+    }
+
+    function _updatePlayBtn() {
+      const btn = document.getElementById('btn-play');
+      if (!btn) return;
+      if (_playing) {
+        btn.innerHTML = '&#9646;&#9646;';
+        btn.classList.add('st-active');
+      } else {
+        btn.innerHTML = '&#9654;';
+        btn.classList.remove('st-active');
+      }
+    }
+
+    function _setupUI() {
+      const overlay = document.getElementById('audio-overlay');
+      const startBtn = document.getElementById('btn-start-audio');
+      const playBtn = document.getElementById('btn-play');
+      const bpmSlider = document.getElementById('slider-bpm');
+      const bpmDisplay = document.getElementById('bpm-display');
+
+      if (startBtn) {
+        startBtn.addEventListener('click', function() {
+          ST.Audio.init();
+          if (overlay) overlay.style.display = 'none';
+        });
+      }
+
+      if (playBtn) {
+        playBtn.addEventListener('click', function() {
+          if (ST.Game.isPlaying()) {
+            ST.Game.stop();
+          } else {
+            ST.Game.start();
+          }
+        });
+      }
+
+      if (bpmSlider) {
+        bpmSlider.value = ST.Audio.getBPM();
+        bpmSlider.addEventListener('input', function() {
+          ST.Audio.setBPM(parseInt(this.value, 10));
+          if (bpmDisplay) bpmDisplay.textContent = ST.Audio.getBPM();
+        });
+      }
+
+      if (bpmDisplay) {
+        bpmDisplay.textContent = ST.Audio.getBPM();
+      }
+    }
+
+    return {
+      init: function() {
+        ST.Grid.init();
+        ST.Renderer.init(document.getElementById('game'));
+        ST.Renderer.drawFrame();
+        _setupUI();
+      },
+
+      start: function() {
+        if (_playing) return;
+        _playing = true;
+        _lastTime = performance.now();
+        _rafId = requestAnimationFrame(_loop);
+        _updatePlayBtn();
+      },
+
+      stop: function() {
+        if (!_playing) return;
+        _playing = false;
+        if (_rafId) {
+          cancelAnimationFrame(_rafId);
+          _rafId = null;
+        }
+        ST.Renderer.drawFrame();
+        _updatePlayBtn();
+      },
+
+      isPlaying: function() {
+        return _playing;
+      }
+    };
+  })();
+
+  // === BOOT ===
+  document.addEventListener('DOMContentLoaded', function() {
+    ST.Game.init();
+  });
+  </script>
+</body>
+</html>
