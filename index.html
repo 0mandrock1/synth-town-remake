@@ -1312,7 +1312,7 @@
     }
 
     function _updateToolBtns() {
-      document.querySelectorAll('.st-tool-btn').forEach(function(btn) {
+      document.querySelectorAll('[data-tool]').forEach(function(btn) {
         btn.classList.toggle('st-active', btn.dataset.tool === _tool);
       });
     }
