@@ -284,6 +284,33 @@
     let _masterGain = null;
     let _bpm = ST.Config.BPM_DEFAULT;
 
+    function _connectWithFilter(osc, env, filterType, filterCutoff) {
+      if (filterType && filterCutoff) {
+        const filter = _ctx.createBiquadFilter();
+        filter.type = filterType;
+        filter.frequency.value = filterCutoff;
+        osc.connect(filter);
+        filter.connect(env);
+      } else {
+        osc.connect(env);
+      }
+    }
+
+    function _addSends(env, sendDelay, sendReverb) {
+      if (sendDelay > 0 && ST.Effects && ST.Effects.getDelayInput()) {
+        const ds = _ctx.createGain();
+        ds.gain.value = sendDelay;
+        env.connect(ds);
+        ds.connect(ST.Effects.getDelayInput());
+      }
+      if (sendReverb > 0 && ST.Effects && ST.Effects.getReverbInput()) {
+        const rs = _ctx.createGain();
+        rs.gain.value = sendReverb;
+        env.connect(rs);
+        rs.connect(ST.Effects.getReverbInput());
+      }
+    }
+
     return {
       onTrigger: null,
 
@@ -298,11 +325,17 @@
 
       trigger: function(params) {
         if (!_ctx || _ctx.state === 'suspended') return;
-        const waveform  = params.waveform  || 'sine';
-        const pitch     = params.pitch     || 440;
-        const decay     = params.decay     || 0.5;
-        const velocity  = params.velocity  !== undefined ? params.velocity : 1.0;
-        const attack    = params.attack    || 0;
+        const waveform     = params.waveform     || 'sine';
+        const pitch        = params.pitch        || 440;
+        const decay        = params.decay        || 0.5;
+        const velocity     = params.velocity     !== undefined ? params.velocity  : 1.0;
+        const attack       = params.attack       || 0;
+        const filterType   = params.filterType   || null;
+        const filterCutoff = params.filterCutoff || null;
+        const sendDelay    = params.sendDelay    !== undefined
+          ? params.sendDelay  : (ST.Effects ? ST.Effects.getSendDelay()  : 0);
+        const sendReverb   = params.sendReverb   !== undefined
+          ? params.sendReverb : (ST.Effects ? ST.Effects.getSendReverb() : 0);
         const now = _ctx.currentTime;
 
         const osc = _ctx.createOscillator();
@@ -318,8 +351,10 @@
         }
         env.gain.exponentialRampToValueAtTime(0.001, now + attack + decay);
 
-        osc.connect(env);
+        _connectWithFilter(osc, env, filterType, filterCutoff);
         env.connect(_masterGain);
+        _addSends(env, sendDelay, sendReverb);
+
         osc.start(now);
         osc.stop(now + attack + decay + 0.05);
 
@@ -916,7 +951,107 @@
   })();
 
   // ============================================================
-  // 8. ST.Score
+  // 8. ST.Effects
+  // ============================================================
+  ST.Effects = (function() {
+    console.log('[Effects] initialized');
+
+    let _compressor    = null;
+    let _delay         = null;
+    let _delayFeedback = null;
+    let _delayInput    = null;
+    let _reverb        = null;
+    let _reverbInput   = null;
+    let _sendDelay     = 0;
+    let _sendReverb    = 0;
+    let _preset        = 'dry';
+
+    const PRESETS = {
+      dry:   { sendDelay: 0,    sendReverb: 0   },
+      room:  { sendDelay: 0,    sendReverb: 0.3 },
+      echo:  { sendDelay: 0.4,  sendReverb: 0   },
+      space: { sendDelay: 0.25, sendReverb: 0.5 }
+    };
+
+    function _createImpulse(ctx, dur, decay) {
+      const len = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+        }
+      }
+      return buf;
+    }
+
+    return {
+      init: function() {
+        if (_compressor) return;
+        const ctx    = ST.Audio.getContext();
+        const master = ST.Audio.getMasterGain();
+        if (!ctx || !master) return;
+
+        master.disconnect();
+        _compressor = ctx.createDynamicsCompressor();
+        _compressor.threshold.value = -24;
+        _compressor.ratio.value     = 4;
+        _compressor.knee.value      = 6;
+        _compressor.attack.value    = 0.003;
+        _compressor.release.value   = 0.25;
+        master.connect(_compressor);
+        _compressor.connect(ctx.destination);
+
+        _delayInput = ctx.createGain();
+        _delay = ctx.createDelay(2.0);
+        _delay.delayTime.value = 60 / ST.Audio.getBPM() / 2;
+        _delayFeedback = ctx.createGain();
+        _delayFeedback.gain.value = 0.4;
+        _delayInput.connect(_delay);
+        _delay.connect(_delayFeedback);
+        _delayFeedback.connect(_delay);
+        _delay.connect(master);
+
+        _reverbInput = ctx.createGain();
+        _reverb = ctx.createConvolver();
+        _reverb.buffer = _createImpulse(ctx, 2.0, 3);
+        _reverbInput.connect(_reverb);
+        _reverb.connect(master);
+
+        console.log('[Effects] audio chain ready');
+      },
+
+      getCompressor:  function() { return _compressor; },
+      getDelay:       function() { return _delay; },
+      getReverb:      function() { return _reverb; },
+      getDelayInput:  function() { return _delayInput; },
+      getReverbInput: function() { return _reverbInput; },
+      getSendDelay:   function() { return _sendDelay; },
+      getSendReverb:  function() { return _sendReverb; },
+      getPreset:      function() { return _preset; },
+
+      setDelayTime: function(seconds) {
+        if (_delay) _delay.delayTime.value = Math.max(0, Math.min(2, seconds));
+      },
+
+      setDelayFeedback: function(value) {
+        if (_delayFeedback) _delayFeedback.gain.value = Math.max(0, Math.min(0.8, value));
+      },
+
+      setPreset: function(name) {
+        const p = PRESETS[name];
+        if (!p) return;
+        _preset     = name;
+        _sendDelay  = p.sendDelay;
+        _sendReverb = p.sendReverb;
+      },
+
+      PRESETS: PRESETS
+    };
+  })();
+
+  // ============================================================
+  // 9. ST.Score
   // ============================================================
   ST.Score = (function() {
     console.log('[Score] initialized');
@@ -952,7 +1087,7 @@
   })();
 
   // ============================================================
-  // 9. ST.Unlocks
+  // 10. ST.Unlocks
   // ============================================================
   ST.Unlocks = (function() {
     console.log('[Unlocks] initialized');
@@ -996,7 +1131,7 @@
   })();
 
   // ============================================================
-  // 10. ST.UI
+  // 11. ST.UI
   // ============================================================
   ST.UI = (function() {
     console.log('[UI] initialized');
@@ -1159,11 +1294,33 @@
       VEHICLE_DEFS.forEach(_makeBtn);
       _makeSection('Signs');
       SIGN_DEFS.forEach(_makeBtn);
+
+      _makeSection('Effects');
+      const PRESET_LABELS = { dry: 'Dry', room: 'Room', echo: 'Echo', space: 'Space' };
+      Object.keys(PRESET_LABELS).forEach(function(name) {
+        const btn = document.createElement('button');
+        btn.className = 'st-tool-btn';
+        btn.dataset.preset = name;
+        if (name === ST.Effects.getPreset()) btn.classList.add('st-active');
+        btn.appendChild(document.createTextNode(PRESET_LABELS[name]));
+        btn.addEventListener('click', function() {
+          ST.Effects.setPreset(name);
+          _updateEffectBtns();
+        });
+        toolbar.appendChild(btn);
+      });
     }
 
     function _updateToolBtns() {
       document.querySelectorAll('.st-tool-btn').forEach(function(btn) {
         btn.classList.toggle('st-active', btn.dataset.tool === _tool);
+      });
+    }
+
+    function _updateEffectBtns() {
+      const preset = ST.Effects.getPreset();
+      document.querySelectorAll('[data-preset]').forEach(function(btn) {
+        btn.classList.toggle('st-active', btn.dataset.preset === preset);
       });
     }
 
@@ -1240,6 +1397,7 @@
 
       if (startBtn) startBtn.addEventListener('click', function() {
         ST.Audio.init();
+        ST.Effects.init();
         if (overlay) overlay.style.display = 'none';
       });
       if (playBtn) playBtn.addEventListener('click', function() {
