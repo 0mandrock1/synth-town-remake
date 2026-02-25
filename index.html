@@ -215,6 +215,23 @@
 
     /* === SCORE === */
     #score-display { font-size: 12px; color: #ffa726; font-weight: 500; }
+
+    /* === ONBOARDING === */
+    #onboard-hint {
+      background: rgba(100,181,246,0.1);
+      border: 1px solid rgba(100,181,246,0.25);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 11px;
+      color: #90caf9;
+      line-height: 1.5;
+      margin-bottom: 4px;
+    }
+    @keyframes st-onboard-pulse {
+      0%, 100% { border-color: rgba(100,181,246,0.35); }
+      50% { border-color: #64b5f6; box-shadow: 0 0 8px rgba(100,181,246,0.45); }
+    }
+    .st-onboard-pulse { animation: st-onboard-pulse 1.2s ease-in-out infinite; }
   </style>
 </head>
 <body>
@@ -1138,6 +1155,8 @@
 
     let _tool = 'road';
     let _selectedBuilding = null;
+    let _hoverTile = null;
+    const _onboard = { step: 0 };
 
     const TOOL_DEFS = [
       { tool: 'select', label: 'Select',  dot: null },
@@ -1161,6 +1180,43 @@
       { tool: 'oneWay',       label: 'One Way',       dot: '#fff' },
       { tool: 'roundabout',   label: 'Roundabout',    dot: '#64b5f6' }
     ];
+
+    function _playCFeedback() {
+      if (ST.Audio.isReady()) {
+        ST.Audio.trigger({ waveform: 'triangle', pitch: 900, decay: 0.05, velocity: 0.1, sendDelay: 0, sendReverb: 0 });
+      }
+    }
+
+    function _advanceOnboard(nextStep) {
+      if (_onboard.step >= 4) return;
+      _onboard.step = nextStep;
+      document.querySelectorAll('.st-onboard-pulse').forEach(function(el) {
+        el.classList.remove('st-onboard-pulse');
+      });
+      const hint = document.getElementById('onboard-hint');
+      if (!hint) return;
+      if (nextStep === 1) {
+        hint.style.display = '';
+        hint.textContent = '1 · Place a road tile';
+        const b = document.querySelector('[data-tool="road"]');
+        if (b) b.classList.add('st-onboard-pulse');
+      } else if (nextStep === 2) {
+        hint.textContent = '2 · Place a building';
+        const b = document.querySelector('[data-tool="sine"]');
+        if (b) b.classList.add('st-onboard-pulse');
+      } else if (nextStep === 3) {
+        hint.textContent = '3 · Place a vehicle & press \u25ba';
+        const b = document.getElementById('btn-play');
+        if (b) b.classList.add('st-onboard-pulse');
+      } else if (nextStep === 4) {
+        hint.style.display = 'none';
+        const toast = document.createElement('div');
+        toast.className = 'st-unlock-toast';
+        toast.textContent = 'Your city is alive \u266a';
+        document.body.appendChild(toast);
+        setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3100);
+      }
+    }
 
     function _buildPianoPicker(building, color) {
       const NOTES         = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -1260,6 +1316,11 @@
       const toolbar = document.getElementById('toolbar');
       toolbar.innerHTML = '';
 
+      const hint = document.createElement('div');
+      hint.id = 'onboard-hint';
+      hint.style.display = 'none';
+      toolbar.appendChild(hint);
+
       function _makeSection(label) {
         const el = document.createElement('div');
         el.className = 'st-toolbar-section';
@@ -1334,7 +1395,8 @@
       if (!ST.Grid.isInBounds(gx, gy)) return;
 
       if (_tool === 'road') {
-        ST.Roads.place(gx, gy);
+        const ok = ST.Roads.place(gx, gy);
+        if (ok) { _playCFeedback(); if (_onboard.step === 1) _advanceOnboard(2); }
 
       } else if (_tool === 'select') {
         const b = ST.Buildings.getAt(gx, gy);
@@ -1370,7 +1432,8 @@
         }
 
       } else if (ST.Buildings.TYPES[_tool]) {
-        ST.Buildings.create(_tool, gx, gy);
+        const b = ST.Buildings.create(_tool, gx, gy);
+        if (b) { _playCFeedback(); if (_onboard.step === 2) _advanceOnboard(3); }
       }
 
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
@@ -1382,10 +1445,20 @@
 
       canvas.addEventListener('mousedown', function(e) { _mouseDown = true; _onCanvasAction(e); });
       canvas.addEventListener('mousemove', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        _hoverTile = {
+          x: Math.floor((e.clientX - rect.left) / rect.width  * ST.Config.GRID_W),
+          y: Math.floor((e.clientY - rect.top)  / rect.height * ST.Config.GRID_H)
+        };
         if (_mouseDown && (_tool === 'road' || _tool === 'remove')) _onCanvasAction(e);
+        if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
       });
       canvas.addEventListener('mouseup',    function() { _mouseDown = false; });
-      canvas.addEventListener('mouseleave', function() { _mouseDown = false; });
+      canvas.addEventListener('mouseleave', function() {
+        _mouseDown = false;
+        _hoverTile = null;
+        if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+      });
     }
 
     function _setupTransport() {
@@ -1399,6 +1472,7 @@
         ST.Audio.init();
         ST.Effects.init();
         if (overlay) overlay.style.display = 'none';
+        _advanceOnboard(1);
       });
       if (playBtn) playBtn.addEventListener('click', function() {
         ST.Game.isPlaying() ? ST.Game.stop() : ST.Game.start();
@@ -1419,6 +1493,9 @@
         _setupCanvas();
         _setupTransport();
         _updateToolBtns();
+        ST.Audio.onTrigger = function() {
+          if (_onboard.step === 3) _advanceOnboard(4);
+        };
       },
 
       setTool: function(toolName) {
@@ -1428,7 +1505,8 @@
         if (canvas) canvas.style.cursor = toolName === 'select' ? 'pointer' : 'crosshair';
       },
 
-      getTool: function() { return _tool; },
+      getTool:      function() { return _tool; },
+      getHoverTile: function() { return _hoverTile; },
 
       showProperties: function(building) {
         _selectedBuilding = building;
@@ -1530,6 +1608,54 @@
     let _ctx = null;
     const _dirty = new Set();
 
+    function _drawDecorations(ctx) {
+      const deco = ST.Score.getThreshold().decorations;
+      if (deco === 0) return;
+      const { TILE } = ST.Config;
+      ST.Grid.forEachTile(function(tile, x, y) {
+        if (tile.type !== 'empty') return;
+        if ((x * 7 + y * 13) % 31 >= deco * 2) return;
+        const cx = x * TILE + TILE / 2;
+        const cy = y * TILE + TILE * 0.75;
+        ctx.fillStyle = '#2d5a27';
+        ctx.fillRect(cx - 1, cy - 2, 2, 7);
+        ctx.fillStyle = '#4caf50';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 8, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#388e3c';
+        ctx.beginPath();
+        ctx.arc(cx - 2, cy - 12, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx + 2, cy - 11, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function _drawHoverPreview(ctx) {
+      const hover = ST.UI.getHoverTile();
+      if (!hover || !ST.Grid.isInBounds(hover.x, hover.y)) return;
+      const tool = ST.UI.getTool();
+      if (tool === 'select') return;
+      const tile = ST.Grid.getTile(hover.x, hover.y);
+      const { TILE } = ST.Config;
+      const px = hover.x * TILE;
+      const py = hover.y * TILE;
+      let valid = false;
+      if (tool === 'road' && tile && tile.type === 'empty') valid = true;
+      else if (tool === 'remove' && tile && tile.type !== 'empty') valid = true;
+      else if (ST.Buildings.TYPES[tool] && tile && tile.type === 'empty') valid = true;
+      else if (ST.Vehicles.TYPES[tool] && tile && tile.type === 'road') valid = true;
+      else if (ST.Signs.TYPES[tool] && tile && tile.type === 'road') valid = true;
+      const col = valid ? 'rgba(100,181,246,' : 'rgba(239,83,80,';
+      ctx.fillStyle = col + '0.15)';
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.strokeStyle = col + '0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(px + 0.75, py + 0.75, TILE - 1.5, TILE - 1.5);
+    }
+
     function _drawGrid() {
       const { TILE, GRID_W, GRID_H, COLORS } = ST.Config;
       _ctx.strokeStyle = COLORS.grid;
@@ -1571,6 +1697,8 @@
           if (tile.type === 'road') ST.Roads.draw(_ctx, x, y, tile);
         });
 
+        _drawDecorations(_ctx);
+
         ST.Grid.forEachTile(function(tile, x, y) {
           if (tile.sign) ST.Signs.draw(_ctx, x, y, tile.sign);
         });
@@ -1580,7 +1708,7 @@
         });
 
         ST.Vehicles.draw(_ctx);
-
+        _drawHoverPreview(_ctx);
         _drawGrid();
         _dirty.clear();
       },
