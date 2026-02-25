@@ -1187,6 +1187,14 @@
       }
     }
 
+    function _showToast(msg) {
+      const t = document.createElement('div');
+      t.className = 'st-unlock-toast';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 2500);
+    }
+
     function _advanceOnboard(nextStep) {
       if (_onboard.step >= 4) return;
       _onboard.step = nextStep;
@@ -1370,6 +1378,26 @@
         });
         toolbar.appendChild(btn);
       });
+
+      _makeSection('Save / Load');
+      function _makeActionBtn(label, onClick) {
+        const btn = document.createElement('button');
+        btn.className = 'st-tool-btn';
+        btn.appendChild(document.createTextNode(label));
+        btn.addEventListener('click', onClick);
+        toolbar.appendChild(btn);
+      }
+      _makeActionBtn('Save', function() {
+        _showToast(ST.State.save(0) ? 'Saved!' : 'Save failed.');
+      });
+      _makeActionBtn('Load', function() {
+        _showToast(ST.State.load(0) ? 'Loaded!' : 'Nothing saved yet.');
+      });
+      _makeActionBtn('Share URL', function() {
+        ST.State.exportURL();
+        if (navigator.clipboard) navigator.clipboard.writeText(location.href).catch(function() {});
+        _showToast('URL ready \u2014 copy from address bar.');
+      });
     }
 
     function _updateToolBtns() {
@@ -1505,8 +1533,9 @@
         if (canvas) canvas.style.cursor = toolName === 'select' ? 'pointer' : 'crosshair';
       },
 
-      getTool:      function() { return _tool; },
-      getHoverTile: function() { return _hoverTile; },
+      getTool:        function() { return _tool; },
+      getHoverTile:   function() { return _hoverTile; },
+      refreshToolbar: function() { _buildToolbar(); _updateToolBtns(); },
 
       showProperties: function(building) {
         _selectedBuilding = building;
@@ -1594,6 +1623,106 @@
         toast.textContent = '🔓 Unlocked: ' + ids.join(', ');
         document.body.appendChild(toast);
         setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3100);
+      }
+    };
+  })();
+
+  // ============================================================
+  // 12. ST.State
+  // ============================================================
+  ST.State = (function() {
+    console.log('[State] initialized');
+
+    const STATE_VERSION = 1;
+    const SLOT_PREFIX = 'synthtown_v1_slot_';
+
+    function _buildSnapshot() {
+      const roads = [];
+      const buildings = [];
+      const signs = [];
+      ST.Grid.forEachTile(function(tile, x, y) {
+        if (tile.type === 'road') {
+          roads.push([x, y]);
+          if (tile.sign) signs.push({ type: tile.sign.type, x: x, y: y, params: tile.sign.params || {} });
+        }
+        if (tile.type === 'building' && tile.building) {
+          const b = tile.building;
+          buildings.push({ type: b.type, x: x, y: y, pitch: b.pitch, level: b.level });
+        }
+      });
+      const vehicles = ST.Vehicles.getAll().map(function(v) {
+        return { type: v.type, x: v.x, y: v.y };
+      });
+      return {
+        v: STATE_VERSION,
+        bpm: ST.Audio.getBPM(),
+        preset: ST.Effects.getPreset(),
+        roads: roads, buildings: buildings,
+        signs: signs,  vehicles: vehicles
+      };
+    }
+
+    function _applySnapshot(data) {
+      if (!data || data.v !== STATE_VERSION) return false;
+      if (ST.Game.isPlaying()) ST.Game.stop();
+      ST.Vehicles.getAll().forEach(function(v) { ST.Vehicles.remove(v); });
+      ST.Grid.forEachTile(function(tile, x, y) {
+        if (tile.type === 'building') ST.Buildings.remove(x, y);
+        else if (tile.type === 'road') ST.Roads.remove(x, y);
+      });
+      (data.roads     || []).forEach(function(r)  { ST.Roads.place(r[0], r[1]); });
+      (data.buildings || []).forEach(function(bd) {
+        const b = ST.Buildings.create(bd.type, bd.x, bd.y);
+        if (b && bd.pitch) ST.Buildings.setProperty(b, 'pitch', bd.pitch);
+        if (b && bd.level) ST.Buildings.setProperty(b, 'level', bd.level);
+      });
+      (data.signs    || []).forEach(function(s)  { ST.Signs.place(s.type, s.x, s.y, s.params); });
+      (data.vehicles || []).forEach(function(vd) { ST.Vehicles.spawn(vd.type, vd.x, vd.y); });
+      if (data.bpm)    ST.Audio.setBPM(data.bpm);
+      if (data.preset) ST.Effects.setPreset(data.preset);
+      ST.Renderer.drawFrame();
+      ST.UI.updateTransport(ST.Audio.getBPM(), false);
+      ST.UI.refreshToolbar();
+      return true;
+    }
+
+    return {
+      serialize: function() {
+        try { return btoa(JSON.stringify(_buildSnapshot())); }
+        catch(e) { return null; }
+      },
+
+      deserialize: function(encoded) {
+        try { return _applySnapshot(JSON.parse(atob(encoded))); }
+        catch(e) { return false; }
+      },
+
+      save: function(slot) {
+        try {
+          const enc = this.serialize();
+          if (!enc) return false;
+          localStorage.setItem(SLOT_PREFIX + slot, enc);
+          return true;
+        } catch(e) { return false; }
+      },
+
+      load: function(slot) {
+        try {
+          const enc = localStorage.getItem(SLOT_PREFIX + slot);
+          if (!enc) return false;
+          return this.deserialize(enc);
+        } catch(e) { return false; }
+      },
+
+      exportURL: function() {
+        const enc = this.serialize();
+        if (enc) location.hash = enc;
+      },
+
+      importURL: function() {
+        const h = location.hash;
+        if (!h || h.length <= 1) return false;
+        return this.deserialize(h.slice(1));
       }
     };
   })();
@@ -1768,7 +1897,9 @@
         ST.Grid.init();
         ST.Renderer.init(document.getElementById('game'));
         ST.UI.init();
-        ST.Renderer.drawFrame();
+        if (!ST.State.importURL()) {
+          ST.Renderer.drawFrame();
+        }
       },
 
       start: function() {
