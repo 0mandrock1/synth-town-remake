@@ -29,6 +29,52 @@ ST.UI = (function() {
     }
   }
 
+  // --- remove tool: handles sign / road / building with undo ---
+  function _handleRemoveTool(gx, gy, tile) {
+    if (!tile) return;
+    if (tile.sign) {
+      const s = { type: tile.sign.type, params: Object.assign({}, tile.sign.params) };
+      ST.Signs.remove(gx, gy);
+      ST.History.push({
+        undo: function() { ST.Signs.place(s.type, gx, gy, s.params); },
+        redo: function() { ST.Signs.remove(gx, gy); }
+      });
+    } else if (tile.type === 'road') {
+      const savedSign = tile.sign ? { type: tile.sign.type, params: Object.assign({}, tile.sign.params) } : null;
+      ST.Roads.remove(gx, gy);
+      ST.Vehicles.getAll().forEach(function(v) {
+        if ((v.x === gx && v.y === gy) || (v.nextX === gx && v.nextY === gy)) ST.Vehicles.remove(v);
+      });
+      ST.History.push({
+        undo: function() {
+          ST.Roads.place(gx, gy);
+          if (savedSign) ST.Signs.place(savedSign.type, gx, gy, savedSign.params);
+        },
+        redo: function() {
+          ST.Roads.remove(gx, gy);
+          ST.Vehicles.getAll().forEach(function(v) {
+            if ((v.x === gx && v.y === gy) || (v.nextX === gx && v.nextY === gy)) ST.Vehicles.remove(v);
+          });
+        }
+      });
+    } else if (tile.type === 'building') {
+      const b = tile.building;
+      const snap = { type: b.type, x: gx, y: gy, pitch: b.pitch, level: b.level };
+      if (_selectedBuilding && _selectedBuilding.x === gx && _selectedBuilding.y === gy) ST.UI.hideProperties();
+      ST.Buildings.remove(gx, gy);
+      ST.History.push({
+        undo: function() {
+          const nb = ST.Buildings.create(snap.type, snap.x, snap.y);
+          if (nb) { ST.Buildings.setProperty(nb, 'pitch', snap.pitch); ST.Buildings.setProperty(nb, 'level', snap.level); }
+        },
+        redo: function() {
+          if (_selectedBuilding && _selectedBuilding.x === snap.x && _selectedBuilding.y === snap.y) ST.UI.hideProperties();
+          ST.Buildings.remove(snap.x, snap.y);
+        }
+      });
+    }
+  }
+
   // --- canvas event handler ---
   function _onCanvasAction(e) {
     const canvas = document.getElementById('game');
@@ -41,44 +87,62 @@ ST.UI = (function() {
 
     if (_tool === 'road') {
       const ok = ST.Roads.place(gx, gy);
-      if (ok) { _playCFeedback(); if (_onboarding.getStep() === 1) _onboarding.advance(2); }
+      if (ok) {
+        _playCFeedback();
+        ST.History.push({ undo: function() { ST.Roads.remove(gx, gy); }, redo: function() { ST.Roads.place(gx, gy); } });
+        if (_onboarding.getStep() === 1) _onboarding.advance(2);
+      }
 
     } else if (_tool === 'select') {
       const b = ST.Buildings.getAt(gx, gy);
       if (b) { ST.UI.showProperties(b); } else { ST.UI.hideProperties(); }
 
     } else if (_tool === 'remove') {
-      const tile = ST.Grid.getTile(gx, gy);
-      if (tile && tile.sign) {
-        ST.Signs.remove(gx, gy);
-      } else if (tile && tile.type === 'road') {
-        ST.Roads.remove(gx, gy);
-        ST.Vehicles.getAll().forEach(function(v) {
-          if ((v.x === gx && v.y === gy) || (v.nextX === gx && v.nextY === gy)) {
-            ST.Vehicles.remove(v);
-          }
-        });
-      } else if (tile && tile.type === 'building') {
-        if (_selectedBuilding && _selectedBuilding.x === gx && _selectedBuilding.y === gy) {
-          ST.UI.hideProperties();
-        }
-        ST.Buildings.remove(gx, gy);
-      }
+      _handleRemoveTool(gx, gy, ST.Grid.getTile(gx, gy));
 
     } else if (ST.Vehicles.TYPES[_tool]) {
       const tile = ST.Grid.getTile(gx, gy);
-      if (tile && tile.type === 'road') ST.Vehicles.spawn(_tool, gx, gy);
+      if (tile && tile.type === 'road') {
+        let v = ST.Vehicles.spawn(_tool, gx, gy);
+        if (v) {
+          const vType = _tool;
+          ST.History.push({ undo: function() { ST.Vehicles.remove(v); }, redo: function() { v = ST.Vehicles.spawn(vType, gx, gy); } });
+        }
+      }
 
     } else if (ST.Signs.TYPES[_tool]) {
       const tile = ST.Grid.getTile(gx, gy);
       if (tile && tile.type === 'road') {
         const params = _tool === 'oneWay' ? { dir: 'E' } : {};
         ST.Signs.place(_tool, gx, gy, params);
+        const signType = _tool;
+        const sp = Object.assign({}, params);
+        ST.History.push({ undo: function() { ST.Signs.remove(gx, gy); }, redo: function() { ST.Signs.place(signType, gx, gy, sp); } });
       }
 
     } else if (ST.Buildings.TYPES[_tool]) {
       const b = ST.Buildings.create(_tool, gx, gy);
-      if (b) { _playCFeedback(); if (_onboarding.getStep() === 2) _onboarding.advance(3); }
+      if (b) {
+        // Preview the building's own sound immediately
+        if (ST.Audio.isReady()) {
+          ST.Audio.trigger({ waveform: b.waveform, pitch: b.pitch, decay: 0.4, velocity: 0.7, sendDelay: 0, sendReverb: 0 });
+        }
+        // Auto-open property panel so player can adjust the note
+        _selectedBuilding = b;
+        _buildPropertiesPanel(b);
+        const snap = { type: _tool, x: gx, y: gy, pitch: b.pitch };
+        ST.History.push({
+          undo: function() {
+            if (_selectedBuilding && _selectedBuilding.x === snap.x && _selectedBuilding.y === snap.y) ST.UI.hideProperties();
+            ST.Buildings.remove(snap.x, snap.y);
+          },
+          redo: function() {
+            const nb = ST.Buildings.create(snap.type, snap.x, snap.y);
+            if (nb) ST.Buildings.setProperty(nb, 'pitch', snap.pitch);
+          }
+        });
+        if (_onboarding.getStep() === 2) _onboarding.advance(3);
+      }
     }
 
     if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
@@ -112,6 +176,7 @@ ST.UI = (function() {
     const playBtn    = document.getElementById('btn-play');
     const bpmSlider  = document.getElementById('slider-bpm');
     const bpmDisplay = document.getElementById('bpm-display');
+    const volSlider  = document.getElementById('slider-vol');
 
     if (startBtn) startBtn.addEventListener('click', function() {
       ST.Audio.init();
@@ -119,9 +184,12 @@ ST.UI = (function() {
       if (overlay) overlay.style.display = 'none';
       _onboarding.advance(1);
     });
-    if (playBtn) playBtn.addEventListener('click', function() {
-      ST.Game.isPlaying() ? ST.Game.stop() : ST.Game.start();
-    });
+    if (playBtn) {
+      playBtn.title = 'Play / Pause  [Space]';
+      playBtn.addEventListener('click', function() {
+        ST.Game.isPlaying() ? ST.Game.stop() : ST.Game.start();
+      });
+    }
     if (bpmSlider) {
       bpmSlider.value = ST.Audio.getBPM();
       bpmSlider.addEventListener('input', function() {
@@ -130,6 +198,40 @@ ST.UI = (function() {
       });
     }
     if (bpmDisplay) bpmDisplay.textContent = ST.Audio.getBPM();
+    if (volSlider) {
+      volSlider.addEventListener('input', function() {
+        const gain = ST.Audio.getMasterGain();
+        if (gain) gain.gain.value = parseInt(this.value, 10) / 100;
+      });
+    }
+    const midiBtn = document.getElementById('btn-export-midi');
+    if (midiBtn) midiBtn.addEventListener('click', function() { ST.MIDI.export(); });
+  }
+
+  function _setupKeyboard() {
+    document.addEventListener('keydown', function(e) {
+      const overlay = document.getElementById('audio-overlay');
+      if (overlay && overlay.style.display !== 'none') return;
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        ST.Game.isPlaying() ? ST.Game.stop() : ST.Game.start();
+      } else if (e.ctrlKey && !e.shiftKey && e.code === 'KeyZ') {
+        e.preventDefault();
+        if (ST.History.undo()) {
+          ST._UI.showToast('Undo', 1200);
+          if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+        }
+      } else if ((e.ctrlKey && e.code === 'KeyY') || (e.ctrlKey && e.shiftKey && e.code === 'KeyZ')) {
+        e.preventDefault();
+        if (ST.History.redo()) {
+          ST._UI.showToast('Redo', 1200);
+          if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+        }
+      }
+    });
   }
 
   // --- property panel ---
@@ -196,6 +298,7 @@ ST.UI = (function() {
       _toolbar.build();
       _setupCanvas();
       _setupTransport();
+      _setupKeyboard();
       _toolbar.updateToolBtns(_tool);
       ST.Audio.onTrigger = function() {
         if (_onboarding.getStep() === 3) _onboarding.advance(4);

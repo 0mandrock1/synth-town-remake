@@ -9,6 +9,7 @@ ST.Audio = (function() {
   let _ctx = null;
   let _masterGain = null;
   let _bpm = ST.Config.BPM_DEFAULT;
+  const _voices = []; // { osc, env, endTime } for voice stealing
 
   function _connectWithFilter(osc, env, filterType, filterCutoff) {
     if (filterType && filterCutoff) {
@@ -64,6 +65,17 @@ ST.Audio = (function() {
         ? params.sendReverb : (ST.Effects ? ST.Effects.getSendReverb() : 0);
       const now = _ctx.currentTime;
 
+      // Stage 8: prune finished voices, then steal oldest if at limit
+      for (let i = _voices.length - 1; i >= 0; i--) {
+        if (_voices[i].endTime <= now) _voices.splice(i, 1);
+      }
+      if (_voices.length >= ST.Config.MAX_VOICES) {
+        const victim = _voices.shift();
+        victim.env.gain.cancelScheduledValues(now);
+        victim.env.gain.setValueAtTime(0.001, now);
+        victim.osc.stop(now + 0.01);
+      }
+
       const osc = _ctx.createOscillator();
       const env = _ctx.createGain();
       osc.type = waveform;
@@ -83,6 +95,7 @@ ST.Audio = (function() {
 
       osc.start(now);
       osc.stop(now + attack + decay + 0.05);
+      _voices.push({ osc: osc, env: env, endTime: now + attack + decay + 0.1 });
 
       if (typeof ST.Audio.onTrigger === 'function') ST.Audio.onTrigger(params);
       if (ST.Config.DEV) console.log('[Audio] trigger:', waveform, pitch);

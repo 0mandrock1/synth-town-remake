@@ -16,6 +16,17 @@ ST.Buildings = (function() {
 
   const _buildings = [];
 
+  // C major pentatonic across 3 octaves — all new synths start in key
+  const PENTATONIC_HZ = [
+    130.81, 146.83, 164.81, 196.00, 220.00,  // C3 D3 E3 G3 A3
+    261.63, 293.66, 329.63, 392.00, 440.00,  // C4 D4 E4 G4 A4
+    523.25, 587.33, 659.26, 783.99, 880.00   // C5 D5 E5 G5 A5
+  ];
+
+  function _randomPitch() {
+    return PENTATONIC_HZ[Math.floor(Math.random() * PENTATONIC_HZ.length)];
+  }
+
   // --- shape-specific roof decorations ---
 
   function _drawSine(ctx, bx, by, bw, color) {
@@ -76,7 +87,7 @@ ST.Buildings = (function() {
       const building = {
         type: type, x: x, y: y,
         waveform: def.waveform, color: def.color,
-        pitch: def.pitchDefault, decay: def.decay, level: 1, flash: 0
+        pitch: _randomPitch(), decay: def.decay, level: 1, flash: 0
       };
       _buildings.push(building);
       ST.Grid.setTile(x, y, { type: 'building', building: building });

@@ -25,8 +25,11 @@
       <span class="st-transport-label">BPM</span>
       <input id="slider-bpm" type="range" min="60" max="180" value="120">
       <span id="bpm-display">120</span>
+      <span class="st-transport-label">Vol</span>
+      <input id="slider-vol" type="range" min="0" max="100" value="80">
       <span id="status-display"></span>
       <span id="score-display"></span>
+      <button id="btn-export-midi" title="Export MIDI file">MIDI</button>
       <span id="fps-display"></span>
     </footer>
   </div>
@@ -46,6 +49,9 @@
   <script src="src/score.js"></script>
   <script src="src/unlocks.js"></script>
 
+  <!-- Undo/redo history -->
+  <script src="src/history.js"></script>
+
   <!-- UI sub-modules (loaded before src/ui.js) -->
   <script src="src/ui/defs.js"></script>
   <script src="src/ui/onboarding.js"></script>
@@ -55,6 +61,7 @@
   <!-- UI assembly + remaining modules -->
   <script src="src/ui.js"></script>
   <script src="src/state.js"></script>
+  <script src="src/midi.js"></script>
   <script src="src/renderer.js"></script>
   <script src="src/game.js"></script>
 
