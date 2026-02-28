@@ -1,9 +1,9 @@
 'use strict';
 
 // ============================================================
-// ST.MIDI — export city composition as a standard .mid file.
-// One tempo track + one note track per vehicle type (car/bicycle/bus).
-// Buildings are sorted by position and evenly spaced across 2 bars.
+// ST.MIDI — export/import city composition as .mid file.
+// Export: one tempo track + one note track per vehicle type.
+// Import: parse .mid → reconstruct building pitches + BPM.
 // ============================================================
 ST.MIDI = (function() {
   console.log('[MIDI] initialized');
@@ -42,6 +42,108 @@ ST.MIDI = (function() {
     });
     data.push(0x00, 0xFF, 0x2F, 0x00); // end-of-track
     return data;
+  }
+
+  // --- import parser ---
+
+  /**
+   * Parse a MIDI ArrayBuffer → { bpm, pitches[] } or null on error.
+   * Handles format 0 (single track) and format 1 (multi-track).
+   * For Synth Town exports (format 1), bar-1 notes map 1-to-1 to buildings.
+   */
+  function _parseMidi(arrayBuffer) {
+    const u8 = new Uint8Array(arrayBuffer);
+    if (u8.length < 14) return null;
+    if (u8[0] !== 0x4D || u8[1] !== 0x54 || u8[2] !== 0x68 || u8[3] !== 0x64) return null;
+
+    const format  = (u8[8] << 8)  | u8[9];
+    const nTracks = (u8[10] << 8) | u8[11];
+    const ppq     = (u8[12] << 8) | u8[13];
+
+    let pos = 14;
+    let bpm = 120;
+    const notesByTrack = [];
+
+    for (let t = 0; t < nTracks; t++) {
+      if (pos + 8 > u8.length) break;
+      if (u8[pos] !== 0x4D || u8[pos+1] !== 0x54 || u8[pos+2] !== 0x72 || u8[pos+3] !== 0x6B) break;
+      const trackLen = (u8[pos+4] << 24) | (u8[pos+5] << 16) | (u8[pos+6] << 8) | u8[pos+7];
+      pos += 8;
+      const trackEnd = pos + trackLen;
+      const notes = [];
+      let curPos = pos;
+      let tick = 0;
+      let lastStatus = 0;
+
+      while (curPos < trackEnd) {
+        // variable-length delta time
+        let delta = 0, b;
+        do { b = u8[curPos++]; delta = (delta << 7) | (b & 0x7f); } while ((b & 0x80) && curPos < trackEnd);
+        tick += delta;
+        if (curPos >= trackEnd) break;
+
+        const byte0 = u8[curPos];
+        if (byte0 === 0xFF) {                         // meta event
+          curPos++;
+          if (curPos >= trackEnd) break;
+          const mType = u8[curPos++];
+          let mLen = 0;
+          do { b = u8[curPos++]; mLen = (mLen << 7) | (b & 0x7f); } while ((b & 0x80) && curPos < trackEnd);
+          if (mType === 0x51 && mLen === 3 && curPos + 2 < u8.length) {
+            const us = (u8[curPos] << 16) | (u8[curPos+1] << 8) | u8[curPos+2];
+            if (us > 0) bpm = Math.round(60000000 / us);
+          }
+          curPos += mLen;
+          lastStatus = 0;
+        } else if (byte0 === 0xF0 || byte0 === 0xF7) { // sysex
+          curPos++;
+          let sLen = 0;
+          do { b = u8[curPos++]; sLen = (sLen << 7) | (b & 0x7f); } while ((b & 0x80) && curPos < trackEnd);
+          curPos += sLen;
+          lastStatus = 0;
+        } else {                                        // MIDI event
+          let status;
+          if (byte0 & 0x80) { status = byte0; lastStatus = byte0; curPos++; }
+          else               { status = lastStatus; }
+          const type = status & 0xF0;
+          if (type === 0x90 && curPos + 1 < trackEnd) {
+            const note = u8[curPos++];
+            const vel  = u8[curPos++];
+            if (vel > 0) notes.push({ tick, note });
+          } else if (type === 0x80 && curPos + 1 < trackEnd) {
+            curPos += 2;
+          } else if ((type === 0xA0 || type === 0xB0 || type === 0xE0) && curPos + 1 < trackEnd) {
+            curPos += 2;
+          } else if ((type === 0xC0 || type === 0xD0) && curPos < trackEnd) {
+            curPos += 1;
+          } else {
+            break;
+          }
+        }
+      }
+
+      notesByTrack.push(notes);
+      pos = trackEnd;
+    }
+
+    // format 0 → notes in track 0; format 1 → notes start at track 1 (track 0 is tempo)
+    const noteTrack = notesByTrack[format === 0 ? 0 : 1] || [];
+
+    // Prefer bar-1 events (avoids duplicates from BARS=2 loop in our export)
+    const ticksPerBar = ppq * 4;
+    let chosen = noteTrack.filter(function(n) { return n.tick < ticksPerBar; });
+    if (chosen.length === 0) {
+      // Fallback for external MIDIs: unique note values in first-occurrence order
+      const seen = new Set();
+      chosen = noteTrack.filter(function(n) {
+        if (seen.has(n.note)) return false;
+        seen.add(n.note);
+        return true;
+      });
+    }
+
+    const pitches = chosen.map(function(n) { return 440 * Math.pow(2, (n.note - 69) / 12); });
+    return { bpm, pitches };
   }
 
   // --- public API ---
@@ -143,6 +245,66 @@ ST.MIDI = (function() {
       URL.revokeObjectURL(url);
       ST._UI.showToast('Exported synth-town.mid', 2500);
       return true;
+    },
+
+    /**
+     * Open a file picker, parse the chosen .mid file, and rebuild buildings.
+     * Replaces all existing buildings; roads/vehicles/signs are preserved.
+     * Also restores BPM from the MIDI tempo track.
+     */
+    import: function() {
+      const input = document.createElement('input');
+      input.type   = 'file';
+      input.accept = '.mid,.midi';
+      input.addEventListener('change', function() {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const result = _parseMidi(e.target.result);
+          if (!result || result.pitches.length === 0) {
+            ST._UI.showToast('Could not read MIDI file.', 2500);
+            return;
+          }
+          const msg = 'Import MIDI? Replaces all buildings (' + result.pitches.length + ' notes found).';
+          if (!confirm(msg)) return;
+
+          // Remove all existing buildings
+          ST.Buildings.getAll().forEach(function(b) { ST.Buildings.remove(b.x, b.y); });
+
+          // Place new buildings at empty tiles in reading order
+          const pitches = result.pitches.slice(0, ST.Config.MAX_BUILDINGS);
+          const types   = Object.keys(ST.Buildings.TYPES);
+          let placed = 0;
+          let pIdx   = 0;
+          outer: for (let gy = 0; gy < ST.Config.GRID_H; gy++) {
+            for (let gx = 0; gx < ST.Config.GRID_W; gx++) {
+              if (pIdx >= pitches.length) break outer;
+              const tile = ST.Grid.getTile(gx, gy);
+              if (!tile || tile.type !== 'empty') continue;
+              const b = ST.Buildings.create(types[pIdx % types.length], gx, gy);
+              if (b) { ST.Buildings.setProperty(b, 'pitch', pitches[pIdx]); placed++; }
+              pIdx++;
+            }
+          }
+
+          // Restore BPM (clamped to slider range)
+          const newBPM = Math.max(ST.Config.BPM_MIN, Math.min(ST.Config.BPM_MAX, result.bpm));
+          ST.Audio.setBPM(newBPM);
+          const bpmSlider  = document.getElementById('slider-bpm');
+          const bpmDisplay = document.getElementById('bpm-display');
+          if (bpmSlider)  bpmSlider.value = newBPM;
+          if (bpmDisplay) bpmDisplay.textContent = newBPM;
+
+          if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+          ST._UI.showToast('Imported ' + placed + ' buildings, ' + newBPM + ' BPM', 3000);
+        };
+        reader.onerror = function() { ST._UI.showToast('Failed to read file.', 2500); };
+        reader.readAsArrayBuffer(file);
+      });
+      document.body.appendChild(input);
+      input.click();
+      document.body.removeChild(input);
     }
   };
 })();

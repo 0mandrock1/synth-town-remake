@@ -86,11 +86,11 @@ ST._UI.createToolbar = function(callbacks) {
       toolbar.appendChild(btn);
     });
 
-    _makeSection(toolbar, 'Save / Load');
-    _makeActionBtn(toolbar, 'Save', function() {
-      callbacks.onShowToast(ST.State.save(0) ? 'Saved!' : 'Save failed.');
+    _makeSection(toolbar, 'Save / Load (Browser)');
+    _makeActionBtn(toolbar, 'Save to Browser', function() {
+      callbacks.onShowToast(ST.State.save(0) ? 'Saved to browser storage!' : 'Save failed.');
     });
-    _makeActionBtn(toolbar, 'Load', function() {
+    _makeActionBtn(toolbar, 'Load from Browser', function() {
       callbacks.onShowToast(ST.State.load(0) ? 'Loaded!' : 'Nothing saved yet.');
     });
     _makeActionBtn(toolbar, 'Share URL', function() {
@@ -98,6 +98,9 @@ ST._UI.createToolbar = function(callbacks) {
       if (navigator.clipboard) navigator.clipboard.writeText(location.href).catch(function() {});
       callbacks.onShowToast('URL ready \u2014 copy from address bar.');
     });
+
+    _makeSection(toolbar, 'MIDI');
+    _makeActionBtn(toolbar, 'Import MIDI', function() { ST.MIDI.import(); });
   }
 
   function updateToolBtns(tool) {
