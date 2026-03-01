@@ -9,37 +9,46 @@ ST.Audio = (function() {
   let _ctx = null;
   let _masterGain = null;
   let _bpm = ST.Config.BPM_DEFAULT;
-  const _voices = []; // { osc, env, endTime } for voice stealing
+
+  // SR-A3: pre-allocated voice pool — no new nodes after init
+  const _pool = [];
 
   // CA-A1: ambient city drone oscillator
   let _droneOsc  = null;
   let _droneGain = null;
 
-  function _connectWithFilter(osc, env, filterType, filterCutoff) {
-    if (filterType && filterCutoff) {
+  function _initPool() {
+    for (let i = 0; i < ST.Config.MAX_VOICES; i++) {
+      const osc    = _ctx.createOscillator();
       const filter = _ctx.createBiquadFilter();
-      filter.type = filterType;
-      filter.frequency.value = filterCutoff;
+      const env    = _ctx.createGain();
+      const dSend  = _ctx.createGain();
+      const rSend  = _ctx.createGain();
+
+      filter.type = 'allpass';
+      filter.frequency.value = 20000;
+      env.gain.setValueAtTime(0, _ctx.currentTime);
+      dSend.gain.setValueAtTime(0, _ctx.currentTime);
+      rSend.gain.setValueAtTime(0, _ctx.currentTime);
+
       osc.connect(filter);
       filter.connect(env);
-    } else {
-      osc.connect(env);
+      env.connect(_masterGain);
+      env.connect(dSend);
+      env.connect(rSend);
+
+      osc.start();
+      _pool.push({ osc, filter, env, dSend, rSend, busyUntil: 0, sendsConnected: false });
     }
   }
 
-  function _addSends(env, sendDelay, sendReverb) {
-    if (sendDelay > 0 && ST.Effects && ST.Effects.getDelayInput()) {
-      const ds = _ctx.createGain();
-      ds.gain.value = sendDelay;
-      env.connect(ds);
-      ds.connect(ST.Effects.getDelayInput());
-    }
-    if (sendReverb > 0 && ST.Effects && ST.Effects.getReverbInput()) {
-      const rs = _ctx.createGain();
-      rs.gain.value = sendReverb;
-      env.connect(rs);
-      rs.connect(ST.Effects.getReverbInput());
-    }
+  function _connectSends(slot) {
+    if (slot.sendsConnected || !ST.Effects) return;
+    const di = ST.Effects.getDelayInput();
+    const ri = ST.Effects.getReverbInput();
+    if (di) slot.dSend.connect(di);
+    if (ri) slot.rSend.connect(ri);
+    slot.sendsConnected = true;
   }
 
   return {
@@ -51,6 +60,7 @@ ST.Audio = (function() {
       _masterGain = _ctx.createGain();
       _masterGain.gain.value = 0.8;
       _masterGain.connect(_ctx.destination);
+      _initPool();
       console.log('[Audio] AudioContext created, state:', _ctx.state);
     },
 
@@ -67,42 +77,55 @@ ST.Audio = (function() {
         ? params.sendDelay  : (ST.Effects ? ST.Effects.getSendDelay()  : 0);
       const sendReverb   = params.sendReverb   !== undefined
         ? params.sendReverb : (ST.Effects ? ST.Effects.getSendReverb() : 0);
+
       const now = _ctx.currentTime;
 
-      // Stage 8: prune finished voices, then steal oldest if at limit
-      for (let i = _voices.length - 1; i >= 0; i--) {
-        if (_voices[i].endTime <= now) _voices.splice(i, 1);
+      // SR-A3: find idle slot or steal earliest-finishing
+      let slot = null;
+      let minBusy = Infinity;
+      for (let i = 0; i < _pool.length; i++) {
+        if (_pool[i].busyUntil <= now) { slot = _pool[i]; break; }
+        if (_pool[i].busyUntil < minBusy) { minBusy = _pool[i].busyUntil; slot = _pool[i]; }
       }
-      if (_voices.length >= ST.Config.MAX_VOICES) {
-        const victim = _voices.shift();
-        victim.env.gain.cancelScheduledValues(now);
-        victim.env.gain.setValueAtTime(0.001, now);
-        victim.osc.stop(now + 0.01);
-      }
+
+      // Kill any running envelope on stolen slot
+      slot.env.gain.cancelScheduledValues(now);
+      slot.env.gain.setValueAtTime(0.0001, now);
+      slot.dSend.gain.cancelScheduledValues(now);
+      slot.dSend.gain.setValueAtTime(0, now);
+      slot.rSend.gain.cancelScheduledValues(now);
+      slot.rSend.gain.setValueAtTime(0, now);
 
       // QW-A1: allow scheduling to a future beat boundary
       const startTime = (params.startTime && params.startTime > now) ? params.startTime : now;
 
-      const osc = _ctx.createOscillator();
-      const env = _ctx.createGain();
-      osc.type = waveform;
-      osc.frequency.value = pitch;
+      // Set oscillator params
+      slot.osc.type = waveform;
+      slot.osc.frequency.cancelScheduledValues(now);
+      slot.osc.frequency.setValueAtTime(pitch, startTime);
 
+      // Set filter (allpass = bypass when no filter requested)
+      slot.filter.type = filterType || 'allpass';
+      slot.filter.frequency.value = filterCutoff || 20000;
+
+      // Schedule amplitude envelope
       if (attack > 0) {
-        env.gain.setValueAtTime(0.001, startTime);
-        env.gain.linearRampToValueAtTime(0.4 * velocity, startTime + attack);
+        slot.env.gain.setValueAtTime(0.001, startTime);
+        slot.env.gain.linearRampToValueAtTime(0.4 * velocity, startTime + attack);
       } else {
-        env.gain.setValueAtTime(0.4 * velocity, startTime);
+        slot.env.gain.setValueAtTime(0.4 * velocity, startTime);
       }
-      env.gain.exponentialRampToValueAtTime(0.001, startTime + attack + decay);
+      slot.env.gain.exponentialRampToValueAtTime(0.001, startTime + attack + decay);
+      slot.env.gain.setValueAtTime(0, startTime + attack + decay + 0.05);
 
-      _connectWithFilter(osc, env, filterType, filterCutoff);
-      env.connect(_masterGain);
-      _addSends(env, sendDelay, sendReverb);
+      // Wire sends lazily on first use
+      _connectSends(slot);
+      slot.dSend.gain.setValueAtTime(sendDelay,  startTime);
+      slot.dSend.gain.setValueAtTime(0, startTime + attack + decay + 0.05);
+      slot.rSend.gain.setValueAtTime(sendReverb, startTime);
+      slot.rSend.gain.setValueAtTime(0, startTime + attack + decay + 0.05);
 
-      osc.start(startTime);
-      osc.stop(startTime + attack + decay + 0.05);
-      _voices.push({ osc: osc, env: env, endTime: startTime + attack + decay + 0.1 });
+      slot.busyUntil = startTime + attack + decay + 0.1;
 
       if (typeof ST.Audio.onTrigger === 'function') ST.Audio.onTrigger(params);
       if (ST.Config.DEV) console.log('[Audio] trigger:', waveform, pitch);

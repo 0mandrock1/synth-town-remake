@@ -50,7 +50,7 @@ The three critical deficits are:
 | 🟠 P1 | Signs count cache (O(1) score) | audio | Low | ✅ Done (SR-A2) |
 | 🟠 P1 | Async reverb impulse generation | audio | Medium | ✅ Done (SR-A1) |
 | 🟠 P1 | Ambient city drone (city "hum") | audio | Medium | ✅ Done (CA-A1) |
-| 🟡 P2 | AudioNode object pooling | audio | Medium | ⬜ Pending |
+| 🟡 P2 | AudioNode object pooling | audio | Medium | ✅ Done (SR-A3) |
 | 🟡 P2 | Off-beat indicator (visual metronome) | ux | Low | ✅ Done (beat-dot) |
 | 🟡 P2 | Score tier transition + arpeggio | ux | Low | ✅ Done (JD-U4) |
 | 🟡 P2 | Unlock celebration (chord stab + shake) | ux | Low | ✅ Done (JD-U3) |
@@ -85,6 +85,11 @@ Changes applied:
 - `signs.js`: `count()` API + cached `_signCount` (SR-A2)
 - `effects.js`: async impulse generation (SR-A1), `setPresetAuto()` + `isManualPreset()` (CLR-M4)
 - `index.html` + `styles/main.css`: beat-dot element and styles, level-button styles
+
+**Wave 3 (2026-03-01): P2 audio performance — AudioNode pool (SR-A3)**
+
+Changes applied:
+- `audio.js`: replaced per-trigger node creation with a pre-allocated pool of `MAX_VOICES` slots (osc + filter + gain + delay send + reverb send). Oscillators run continuously at gain=0 when idle. Sends connected lazily on first effect use. Eliminates GC pressure from oscillator creation/destruction.
 
 **Wave 2 (2026-03-01): P1 remaining + P2 UX/audio items**
 

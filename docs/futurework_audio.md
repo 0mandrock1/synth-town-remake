@@ -223,13 +223,15 @@ ST.Grid.forEachTile(function(tile) { if (tile.sign) signCount++; });
 
 **Solution:** Cache sign count in `ST.Signs` as an incrementing/decrementing counter (similar to how `ST.Buildings.count()` and `ST.Roads.count()` already work). Expose `ST.Signs.count()`. Then `Score.calculate()` becomes O(1).
 
-### SR-A3: Voice Node Pre-Allocation (Object Pool)
+### SR-A3: Voice Node Pre-Allocation (Object Pool) ✅
 
 **Problem:** `ST.Audio.trigger()` calls `_ctx.createOscillator()` and `_ctx.createGain()` on every trigger event. Web Audio nodes are not cheap to create — GC pressure increases with rapid vehicle-building interactions.
 
 **Solution:** Pre-allocate a pool of `MAX_VOICES` oscillator/gain node pairs. Reset parameters and reconnect rather than destroy/create. This is the standard Web Audio performance pattern.
 
 Note: Oscillator nodes cannot be restarted after `.stop()`, so the pool must use a "borrow/recycle" pattern where `stop()` is replaced by gain envelope fade-out.
+
+**Implemented:** Each pool slot is `{ osc, filter, env, dSend, rSend, busyUntil, sendsConnected }`. All oscillators start on `init()` and run forever at `env.gain = 0` when idle. On trigger: `cancelScheduledValues` → set params → schedule envelope. Filter defaults to `allpass` (bypass). Send gains wired lazily on first use.
 
 ---
 
