@@ -17,6 +17,25 @@ ST.Game = (function() {
   let _lastTier   = null; // CLR-M4: track tier for auto-effect progression
   let _beatDot    = null; // QW-U4: beat pulse DOM element
 
+  // JD-U4: ascending arpeggio + golden flash on score tier change
+  function _celebrateTierUp(name) {
+    if (ST.Audio.isReady()) {
+      [261.63, 329.63, 392.00].forEach(function(hz, i) {
+        setTimeout(function() {
+          ST.Audio.trigger({ waveform: 'sine', pitch: hz,
+            attack: 0.02, decay: 0.35, velocity: 0.5, sendReverb: 0.3 });
+        }, i * 110);
+      });
+    }
+    if (ST.Renderer.markShake) ST.Renderer.markShake(1.5);
+    const scoreEl = document.getElementById('score-display');
+    if (scoreEl) {
+      scoreEl.classList.add('st-tier-flash');
+      setTimeout(function() { scoreEl.classList.remove('st-tier-flash'); }, 1400);
+    }
+    if (ST._UI) ST._UI.showToast('\u2605 ' + name, 3500);
+  }
+
   function _loop(timestamp) {
     const dt = Math.min((timestamp - _lastTime) / 1000, 0.1);
     _lastTime = timestamp;
@@ -65,9 +84,11 @@ ST.Game = (function() {
         const score = ST.Score.calculate();
         const threshold = ST.Score.getThreshold();
         scoreEl.textContent = score + ' \u2014 ' + threshold.name;
-        // CLR-M4: auto-apply audio preset on tier change (manual preset wins)
+        // CLR-M4 + JD-U4: on tier change — celebrate and auto-apply audio preset
         if (_lastTier !== threshold.name) {
+          const isFirstLoad = _lastTier === null;
           _lastTier = threshold.name;
+          if (!isFirstLoad) _celebrateTierUp(threshold.name);
           if (ST.Effects.getCompressor()) {
             const tierPresets = {
               'First Beat':    'room',
@@ -81,6 +102,8 @@ ST.Game = (function() {
           }
         }
       }
+      // CA-A1: update ambient drone volume
+      if (ST.Audio.updateDrone) ST.Audio.updateDrone(ST.Buildings.count());
       const newUnlocks = ST.Unlocks.check();
       if (newUnlocks) ST.UI.onUnlock(newUnlocks);
     }

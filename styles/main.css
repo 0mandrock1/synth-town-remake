@@ -205,6 +205,32 @@ main {
   100% { opacity: 0; }
 }
 
+/* === TOOLTIP === */
+#st-tooltip {
+  position: fixed;
+  background: rgba(10,10,24,0.97);
+  border: 1px solid rgba(100,181,246,0.35);
+  color: #e0e0e0;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.55;
+  pointer-events: none;
+  z-index: 400;
+  max-width: 230px;
+  display: none;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.55);
+}
+#st-tooltip strong { color: #90caf9; display: block; margin-bottom: 2px; }
+
+/* === SCORE TIER FLASH (JD-U4) === */
+@keyframes st-tier-flash {
+  0%   { color: #ffa726; text-shadow: none; }
+  20%  { color: #ffd740; text-shadow: 0 0 12px rgba(255,215,64,0.85); }
+  100% { color: #ffa726; text-shadow: none; }
+}
+.st-tier-flash { animation: st-tier-flash 1.4s ease-out forwards; }
+
 /* === BEAT DOT (QW-U4) === */
 #beat-dot {
   width: 8px;

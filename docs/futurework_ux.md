@@ -164,7 +164,7 @@ The class `pulse` is toggled by checking when `_beatPhase` crosses integer beat 
 
 ---
 
-## 3. Juice & Dopamine Enhancements (P1) — Partial, 2026-03-01
+## 3. Juice & Dopamine Enhancements (P1) — ✅ IMPLEMENTED 2026-03-01
 
 ### JD-U1: Screen Shake on Musical Events ✅
 
@@ -234,25 +234,47 @@ function updateAndDrawParticles(ctx, dt) {
 
 **Triggered from:** `ST.Buildings.draw()` when `b.flash > 0.95` (first frame of flash). Particles use `b.color`.
 
-### JD-U3: Unlock Celebration Animation
+### JD-U3: Unlock Celebration Animation ✅
 
 **Problem:** Feature unlocks only show a text toast. The toolbar button just appears.
 
 **Solution:** When a new tool is unlocked:
-1. The new toolbar button slides in from the left with a CSS animation
-2. A chord stab plays (major triad at C4)
-3. A golden ring particle burst plays at the button position
-4. The toast includes the button's color dot: "🎵 Bicycle unlocked"
+1. A chord stab plays (triangle triad C4/E4/G4 simultaneous)
+2. Screen shake at intensity 1.5
+3. Toast shows "★ Unlocked: <tool names>"
+4. Toolbar rebuilds and highlights newly unlocked buttons
 
-### JD-U4: Score Tier Transition Effect
+### JD-U4: Score Tier Transition Effect ✅
 
 **Problem:** Crossing a score threshold produces no celebration — the tier name just changes in the display.
 
 **Solution:** On tier transition:
-1. The score display flashes gold for 1 second
-2. A "level up" ascending arpeggio plays (C4 → E4 → G4, 100ms apart)
-3. The tier name slides in from the bottom with a CSS transition
-4. If it's "Synth City" (max tier), the Bass Drop event fires (see mechanics plan)
+1. The score display flashes gold for 1.4s (CSS `st-tier-flash` animation)
+2. A "level up" ascending arpeggio plays (C4 → E4 → G4, 110ms apart) with reverb send
+3. Screen shake at intensity 1.5
+4. Toast shows "★ <tier name>"
+
+---
+
+## 3b. Tooltip System (P2) — ✅ IMPLEMENTED 2026-03-01
+
+### TT-U1: Contextual Tooltips for All UI Elements ✅
+
+**Problem:** Players have no in-game reference for what each tool, building, vehicle, or sign does. Information exists only in external docs.
+
+**Solution:** Fixed-position tooltip `<div id="st-tooltip">` shown on `mouseenter`, moved on `mousemove`, hidden on `mouseleave`. First line rendered bold as title; subsequent lines as body text.
+
+**Coverage:**
+- All toolbar tool buttons (select, road, remove, 5 buildings, 3 vehicles, 3 signs)
+- All effects preset buttons (Dry, Room, Echo, Space)
+- Transport controls (Play/Stop button, BPM slider, Volume slider, Beat Dot)
+- Properties panel elements (pitch piano, level, decay, waveform)
+
+**Implementation:**
+- `ST._UI.showTooltip(e, text)` / `moveTooltip(e)` / `hideTooltip()` exposed from `ui.js`
+- `_attachTip(btn, text)` helper in `toolbar.js` wires all buttons
+- `PRESET_TOOLTIPS` object in `defs.js` for effects buttons
+- `#st-tooltip` styled in `styles/main.css` with dark glass background, blue border, 230px max-width
 
 ---
 
@@ -295,9 +317,9 @@ The current palette (blue/red/green/orange/purple buildings) relies entirely on 
 
 ---
 
-## 5. Onboarding Overhaul (P2)
+## 5. Onboarding Overhaul (P2) — ✅ IMPLEMENTED 2026-03-01
 
-### OB-U1: Revised 5-Step Onboarding
+### OB-U1: Revised 5-Step Onboarding ✅
 
 Replace the current 4-step flow with a musically-focused sequence:
 
@@ -328,13 +350,15 @@ Replace the current 4-step flow with a musically-focused sequence:
 > Highlight: properties panel (click a building with select tool).
 > Advance: auto-dismisses after 10s.
 
-### OB-U2: "First Musical Moment" Detection
+### OB-U2: "First Musical Moment" Detection ✅
 
 The onboarding should track whether the player has experienced the core audio loop. This is detected when:
 - At least 1 vehicle has triggered at least 1 building (i.e., `_triggerNearby()` was called once)
 - The player has not dismissed the overlay
 
 If this has NOT happened within 90 seconds of game start, show a gentle nudge: "Try connecting your road to a building tile, then add a vehicle nearby."
+
+**Implemented:** `onboarding.js` exposes `onTrigger()` method called by `ST.Audio.onTrigger` hook. 90s nudge timer starts on step 1, cleared on step 4. Step 4 auto-advances to 5 after 6s.
 
 ---
 

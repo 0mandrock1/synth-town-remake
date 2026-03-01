@@ -11,6 +11,10 @@ ST.Audio = (function() {
   let _bpm = ST.Config.BPM_DEFAULT;
   const _voices = []; // { osc, env, endTime } for voice stealing
 
+  // CA-A1: ambient city drone oscillator
+  let _droneOsc  = null;
+  let _droneGain = null;
+
   function _connectWithFilter(osc, env, filterType, filterCutoff) {
     if (filterType && filterCutoff) {
       const filter = _ctx.createBiquadFilter();
@@ -115,6 +119,27 @@ ST.Audio = (function() {
     getBPM:        function() { return _bpm; },
     isReady:       function() { return _ctx !== null && _ctx.state !== 'suspended'; },
     getContext:    function() { return _ctx; },
-    getMasterGain: function() { return _masterGain; }
+    getMasterGain: function() { return _masterGain; },
+
+    // CA-A1: update ambient drone level proportional to building count
+    updateDrone: function(buildingCount) {
+      if (!_ctx || _ctx.state === 'suspended') return;
+      if (buildingCount === 0) {
+        if (_droneGain) _droneGain.gain.setTargetAtTime(0, _ctx.currentTime, 0.8);
+        return;
+      }
+      if (!_droneOsc) {
+        _droneOsc  = _ctx.createOscillator();
+        _droneGain = _ctx.createGain();
+        _droneOsc.type = 'sine';
+        _droneOsc.frequency.value = 65.41; // C2 — deep city hum
+        _droneGain.gain.setValueAtTime(0, _ctx.currentTime);
+        _droneOsc.connect(_droneGain);
+        _droneGain.connect(_masterGain);
+        _droneOsc.start();
+      }
+      const target = Math.min(buildingCount * 0.003, 0.04); // caps at ~13 buildings
+      _droneGain.gain.setTargetAtTime(target, _ctx.currentTime, 1.5);
+    }
   };
 })();

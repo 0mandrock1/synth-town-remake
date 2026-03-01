@@ -48,6 +48,43 @@ ST.UI = (function() {
     _hoverPitch = 0;
   }
 
+  // --- tooltip system (exposed on ST._UI for toolbar/defs to use) ---
+  function _showTooltip(e, text) {
+    const tip = document.getElementById('st-tooltip');
+    if (!tip) return;
+    const parts = text.split('\n');
+    tip.innerHTML = '<strong>' + parts[0] + '</strong>' +
+      (parts.length > 1 ? '<br>' + parts.slice(1).join('<br>') : '');
+    tip.style.display = 'block';
+    _moveTooltip(e);
+  }
+
+  function _moveTooltip(e) {
+    const tip = document.getElementById('st-tooltip');
+    if (!tip || tip.style.display === 'none') return;
+    const x = Math.min(e.clientX + 14, window.innerWidth - 226);
+    tip.style.left = x + 'px';
+    tip.style.top  = Math.max(4, e.clientY - tip.offsetHeight - 8) + 'px';
+  }
+
+  function _hideTooltip() {
+    const tip = document.getElementById('st-tooltip');
+    if (tip) tip.style.display = 'none';
+  }
+
+  function _addTooltip(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('mouseenter', function(e) { _showTooltip(e, text); });
+    el.addEventListener('mouseleave', _hideTooltip);
+    el.addEventListener('mousemove',  _moveTooltip);
+  }
+
+  // Make tooltip helpers available to toolbar and other sub-modules
+  ST._UI.showTooltip = _showTooltip;
+  ST._UI.moveTooltip = _moveTooltip;
+  ST._UI.hideTooltip = _hideTooltip;
+
   const _onboarding = ST._UI.createOnboarding();
 
   const _toolbar = ST._UI.createToolbar({
@@ -406,9 +443,14 @@ ST.UI = (function() {
       _setupTransport();
       _setupKeyboard();
       _toolbar.updateToolBtns(_tool);
-      ST.Audio.onTrigger = function() {
-        if (_onboarding.getStep() === 3) _onboarding.advance(4);
-      };
+      ST.Audio.onTrigger = function() { _onboarding.onTrigger(); };
+      // Tooltips for transport controls
+      _addTooltip('btn-play',      'Play / Stop\nStarts the city simulation\nVehicles move and trigger building notes');
+      _addTooltip('slider-bpm',    'BPM — Beats per Minute\nSets playback speed and delay echo timing\n60–180 BPM');
+      _addTooltip('beat-dot',      'Beat Indicator\nPulses on every beat at the current BPM');
+      _addTooltip('slider-vol',    'Master Volume\nOverall output level');
+      _addTooltip('score-display', 'City Score\nBuildings ×10, roads ×2, vehicles ×15\nHarmonious neighbours earn bonus points (up to +200)');
+      _addTooltip('btn-export-midi', 'Export MIDI\nDownload your city composition as a .mid file');
     },
 
     setTool: function(toolName) {
@@ -449,9 +491,17 @@ ST.UI = (function() {
     },
 
     onUnlock: function(ids) {
+      // JD-U3: chord stab + shake on unlock
+      if (ST.Audio.isReady()) {
+        [261.63, 329.63, 392.00].forEach(function(hz) {
+          ST.Audio.trigger({ waveform: 'triangle', pitch: hz,
+            attack: 0.02, decay: 0.5, velocity: 0.4, sendReverb: 0.25 });
+        });
+      }
+      if (ST.Renderer && ST.Renderer.markShake) ST.Renderer.markShake(1.5);
       _toolbar.build();
       _toolbar.updateToolBtns(_tool);
-      ST._UI.showToast('\uD83D\uDD13 Unlocked: ' + ids.join(', '), 3100);
+      ST._UI.showToast('\u2605 Unlocked: ' + ids.join(', '), 3500);
     }
   };
 })();

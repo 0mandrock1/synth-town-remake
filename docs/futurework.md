@@ -49,9 +49,13 @@ The three critical deficits are:
 | 🟠 P1 | Screen shake + particle burst on merge | ux | Medium | ✅ Done (JD-U1/U2) |
 | 🟠 P1 | Signs count cache (O(1) score) | audio | Low | ✅ Done (SR-A2) |
 | 🟠 P1 | Async reverb impulse generation | audio | Medium | ✅ Done (SR-A1) |
-| 🟠 P1 | Ambient city drone (city "hum") | audio | Medium | ⬜ Pending |
+| 🟠 P1 | Ambient city drone (city "hum") | audio | Medium | ✅ Done (CA-A1) |
 | 🟡 P2 | AudioNode object pooling | audio | Medium | ⬜ Pending |
 | 🟡 P2 | Off-beat indicator (visual metronome) | ux | Low | ✅ Done (beat-dot) |
+| 🟡 P2 | Score tier transition + arpeggio | ux | Low | ✅ Done (JD-U4) |
+| 🟡 P2 | Unlock celebration (chord stab + shake) | ux | Low | ✅ Done (JD-U3) |
+| 🟡 P2 | Onboarding 5-step musical flow | ux | Medium | ✅ Done (OB-U1/U2) |
+| 🟡 P2 | Tooltip system for all UI elements | ux | Medium | ✅ Done |
 | 🟢 P3 | Chord progression engine | audio | High | ⬜ Pending |
 | 🟢 P3 | "Bass Drop" musical milestone event | mechanics | High | ⬜ Pending |
 | 🟢 P3 | Per-building filter envelope modulation | audio | High | ⬜ Pending |
@@ -81,3 +85,15 @@ Changes applied:
 - `signs.js`: `count()` API + cached `_signCount` (SR-A2)
 - `effects.js`: async impulse generation (SR-A1), `setPresetAuto()` + `isManualPreset()` (CLR-M4)
 - `index.html` + `styles/main.css`: beat-dot element and styles, level-button styles
+
+**Wave 2 (2026-03-01): P1 remaining + P2 UX/audio items**
+
+Changes applied:
+- `audio.js`: ambient city drone oscillator (CA-A1) — C2 sub-bass, volume proportional to building count
+- `game.js`: tier celebration arpeggio + gold flash + shake (JD-U4); drone update every frame
+- `ui.js`: tooltip infrastructure `_showTooltip / _moveTooltip / _hideTooltip` exposed on `ST._UI`; transport element tooltips; unlock celebration chord stab + shake (JD-U3)
+- `ui/defs.js`: tooltip text added to all tool, building, vehicle, sign defs; `PRESET_TOOLTIPS` map
+- `ui/toolbar.js`: `_attachTip()` helper wired to all toolbar and preset buttons
+- `ui/onboarding.js`: 5-step musical flow with `onTrigger()` method + 90s nudge timer (OB-U1/U2)
+- `index.html`: `<div id="st-tooltip">` tooltip container
+- `styles/main.css`: `#st-tooltip` styles; `.st-tier-flash` gold keyframe animation

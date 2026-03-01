@@ -127,9 +127,9 @@ setBPM: function(bpm) {
 
 ---
 
-## 3. Core Architecture Improvements (P1 — half-day each) — Partial, 2026-03-01
+## 3. Core Architecture Improvements (P1 — half-day each) — ✅ IMPLEMENTED 2026-03-01
 
-### CA-A1: Ambient City Drone Layer
+### CA-A1: Ambient City Drone Layer ✅
 
 **Problem:** The city is silent between vehicle passes. This breaks immersion — a real synth city would hum.
 
@@ -192,7 +192,7 @@ This is purely deterministic — no chord theory needed, just ratio math on Hz v
 
 ---
 
-## 4. Scalability Refactors (P2 — 1 day) — Partial, 2026-03-01
+## 4. Scalability Refactors (P2 — 1 day)
 
 ### SR-A1: Async Impulse Response Generation ✅
 
