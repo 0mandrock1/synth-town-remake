@@ -215,12 +215,12 @@ This is the clearest implementation of the "sequencer" core metaphor — the pla
 - Toast: "Your city found its first groove!"
 - Unlocks: Bicycle + Effects panel
 
-### MM-M2: "Harmonic District" Achievement
+### MM-M2: "Harmonic District" Achievement ✅ (visual only)
 
 - Triggers when 3+ buildings within a 3×3 tile area are harmonically related (fifth or octave ratio)
-- The district glows with a golden outline
-- Score bonus: +50 permanent "District Bonus" for as long as those buildings exist
-- Visual: The buildings in the district pulse in sync on beat
+- The district glows with a golden dashed outline
+
+**Implemented (visual):** `_detectHarmonicDistricts()` in `renderer.js` scans every 3×3 sub-grid every 60 frames; if ≥2 harmonic pairs (octave or fifth ratio) found, stores district bounds. `_drawHarmonicDistricts()` draws gold dashed outlines with blue glow. Score bonus and beat-pulse sync not yet implemented.
 
 ### MM-M3: "DJ Booth" Achievement (Score = 600)
 

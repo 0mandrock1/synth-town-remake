@@ -318,6 +318,16 @@ ST.UI = (function() {
     const midiBtn = document.getElementById('btn-export-midi');
     if (midiBtn) midiBtn.addEventListener('click', function() { ST.MIDI.export(); });
 
+    // AC-U1: beat grid playhead toggle
+    const gridBtn = document.getElementById('btn-grid');
+    if (gridBtn) {
+      gridBtn.addEventListener('click', function() {
+        const on = !ST.Renderer.isGridOverlay();
+        ST.Renderer.setGridOverlay(on);
+        gridBtn.classList.toggle('st-active', on);
+      });
+    }
+
     // FM-A1: chord mode toggle — unlocks visually at Urban Pulse tier via game.js
     const chordBtn = document.getElementById('btn-chord');
     if (chordBtn) {
@@ -432,6 +442,12 @@ ST.UI = (function() {
           attack: 0.05, decay: 0.4, velocity: 0.5, sendReverb: 0.3 });
       }
       if (ST.Renderer && ST.Renderer.markShake) ST.Renderer.markShake(2.0);
+      // FM-A3: key change event when any building first reaches level 5
+      if (newLevel === 5 && ST.Buildings.transposePitches) {
+        ST.Buildings.transposePitches(5);
+        if (ST.Renderer.markShake) ST.Renderer.markShake(3.0);
+        ST._UI.showToast('\uD83C\uDFB5 Key Change \u2014 the city found a new groove!', 4000);
+      }
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
     });
     levelDown.addEventListener('click', function() {
@@ -464,6 +480,7 @@ ST.UI = (function() {
       _addTooltip('score-display', 'City Score\nBuildings ×10, roads ×2, vehicles ×15\nHarmonious neighbours earn bonus points (up to +200)');
       _addTooltip('btn-export-midi', 'Export MIDI\nDownload your city composition as a .mid file');
       _addTooltip('btn-chord', 'Chord Mode\nAdds a perfect fifth to every note\nUnlocks at Urban Pulse (600 pts)');
+      _addTooltip('btn-grid',  'Beat Grid\nShows a playhead sweeping left→right once per beat\nVisualize the city as a sequencer');
     },
 
     setTool: function(toolName) {

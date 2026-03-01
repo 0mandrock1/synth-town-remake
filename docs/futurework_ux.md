@@ -280,13 +280,15 @@ function updateAndDrawParticles(ctx, dt) {
 
 ## 4. Accessibility & Clarity (P2)
 
-### AC-U1: Visual BPM Grid Overlay (Optional)
+### AC-U1: Visual BPM Grid Overlay (Optional) ✅
 
 A toggle in the transport bar (disabled by default): **"Show Beat Grid"**
 
 When enabled, a thin vertical line sweeps across the canvas from left to right, completing one sweep per beat. Buildings near the line "light up" slightly (subtle fill brightness increase) as the playhead approaches, giving a sequencer-style visual.
 
 This is the most direct expression of the "city as sequencer" concept — a DAW-style playhead moving through the city.
+
+**Implemented:** `◇` button in transport bar. `ST.Renderer.setGridOverlay(bool)` / `isGridOverlay()`. In `drawFrame()`, reads `ST.Game.getBeatPhase()` to compute line position (`phase × GRID_W × TILE`). Blue glow line with `shadowBlur=8`.
 
 ### AC-U2: Building Type Legend
 

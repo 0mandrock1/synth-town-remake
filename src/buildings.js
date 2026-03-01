@@ -184,6 +184,15 @@ ST.Buildings = (function() {
     setProperty: function(b, key, val) { b[key] = val; },
 
     count:  function() { return _buildings.length; },
-    getAll: function() { return _buildings.slice(); }
+    getAll: function() { return _buildings.slice(); },
+
+    // FM-A3: transpose all building pitches by semitones — global key change event
+    transposePitches: function(semitones) {
+      const ratio = Math.pow(2, semitones / 12);
+      _buildings.forEach(function(b) {
+        b.pitch = Math.min(b.pitch * ratio, 1760); // cap at A6
+        b.flash = 1.5;
+      });
+    }
   };
 })();

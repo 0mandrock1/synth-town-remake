@@ -15,6 +15,13 @@ ST.Renderer = (function() {
   // JD-U2: lightweight particle system
   const _particles = [];
 
+  // AC-U1: beat grid playhead overlay
+  let _gridOverlay = false;
+
+  // MM-M2: harmonic district detection (updated every 60 frames)
+  let _frameCounter = 0;
+  const _harmonicDistricts = [];
+
   function _emitParticles(px, py, color, count) {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -46,6 +53,58 @@ ST.Renderer = (function() {
       ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
     });
     ctx.globalAlpha = 1.0;
+  }
+
+  // MM-M2: scan grid for 3×3 regions with 2+ harmonic pairs
+  function _detectHarmonicDistricts() {
+    _harmonicDistricts.length = 0;
+    const { GRID_W, GRID_H } = ST.Config;
+    for (let ax = 0; ax <= GRID_W - 3; ax++) {
+      for (let ay = 0; ay <= GRID_H - 3; ay++) {
+        const group = [];
+        for (let dx = 0; dx < 3; dx++) {
+          for (let dy = 0; dy < 3; dy++) {
+            const b = ST.Buildings.getAt(ax + dx, ay + dy);
+            if (b) group.push(b);
+          }
+        }
+        if (group.length < 3) continue;
+        let harmonicPairs = 0;
+        for (let i = 0; i < group.length; i++) {
+          for (let j = i + 1; j < group.length; j++) {
+            let r = group[i].pitch > group[j].pitch
+              ? group[i].pitch / group[j].pitch
+              : group[j].pitch / group[i].pitch;
+            while (r > 2.0) r /= 2;
+            if (Math.abs(r - 2.0) < 0.06 || Math.abs(r - 1.0) < 0.06) harmonicPairs++;
+            else if (Math.abs(r - 1.5) < 0.06) harmonicPairs++;
+          }
+        }
+        if (harmonicPairs >= 2) {
+          _harmonicDistricts.push({ x1: ax, y1: ay, x2: ax + 2, y2: ay + 2 });
+        }
+      }
+    }
+  }
+
+  function _drawHarmonicDistricts(ctx) {
+    if (_harmonicDistricts.length === 0) return;
+    const { TILE } = ST.Config;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,215,64,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.shadowColor = '#ffd740';
+    ctx.shadowBlur  = 10;
+    _harmonicDistricts.forEach(function(d) {
+      ctx.strokeRect(
+        d.x1 * TILE - 2, d.y1 * TILE - 2,
+        (d.x2 - d.x1 + 1) * TILE + 4,
+        (d.y2 - d.y1 + 1) * TILE + 4
+      );
+    });
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 
   function _drawDecorations(ctx) {
@@ -116,6 +175,25 @@ ST.Renderer = (function() {
     }
   }
 
+  // AC-U1: sweep a vertical playhead line across the canvas each beat
+  function _drawBeatGrid(ctx) {
+    if (!_gridOverlay) return;
+    if (!ST.Game || !ST.Game.getBeatPhase) return;
+    const { TILE, GRID_W, GRID_H } = ST.Config;
+    const phase  = ST.Game.getBeatPhase();
+    const lineX  = Math.round(phase * GRID_W * TILE);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(100,181,246,0.45)';
+    ctx.lineWidth   = 2;
+    ctx.shadowColor = '#64b5f6';
+    ctx.shadowBlur  = 8;
+    ctx.beginPath();
+    ctx.moveTo(lineX, 0);
+    ctx.lineTo(lineX, GRID_H * TILE);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   return {
     init: function(canvasElement) {
       _canvas = canvasElement;
@@ -142,10 +220,18 @@ ST.Renderer = (function() {
     // JD-U1: add screen shake
     markShake: function(intensity) { _shake = Math.min(8, _shake + intensity); },
 
+    // AC-U1: beat grid overlay toggle
+    setGridOverlay: function(on) { _gridOverlay = on; },
+    isGridOverlay:  function() { return _gridOverlay; },
+
     drawFrame: function() {
       const { GRID_W, GRID_H, TILE, COLORS } = ST.Config;
       _ctx.fillStyle = COLORS.bg;
       _ctx.fillRect(0, 0, GRID_W * TILE, GRID_H * TILE);
+
+      // MM-M2: update harmonic district detection every 60 frames
+      _frameCounter++;
+      if (_frameCounter % 60 === 0) _detectHarmonicDistricts();
 
       // JD-U1: apply shake offset for this frame
       _ctx.save();
@@ -162,6 +248,7 @@ ST.Renderer = (function() {
       });
 
       _drawDecorations(_ctx);
+      _drawHarmonicDistricts(_ctx); // MM-M2: golden glow before buildings
 
       ST.Grid.forEachTile(function(tile, x, y) {
         if (tile.sign) ST.Signs.draw(_ctx, x, y, tile.sign);
@@ -172,7 +259,8 @@ ST.Renderer = (function() {
       });
 
       ST.Vehicles.draw(_ctx);
-      _drawParticles(_ctx); // JD-U2
+      _drawParticles(_ctx);   // JD-U2
+      _drawBeatGrid(_ctx);    // AC-U1: beat grid playhead line
       _drawHoverPreview(_ctx);
       _drawGrid(_ctx);
 

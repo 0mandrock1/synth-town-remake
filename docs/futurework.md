@@ -58,6 +58,9 @@ The three critical deficits are:
 | 🟡 P2 | Tooltip system for all UI elements | ux | Medium | ✅ Done |
 | 🟢 P3 | Chord Mode toggle (fifth on every note) | audio | Medium | ✅ Done (FM-A1) |
 | 🟢 P3 | "Bass Drop" musical milestone event | mechanics | High | ✅ Done (FM-A2) |
+| 🟢 P3 | Key Change on Merge (level 5 → transpose +5st) | audio | Medium | ✅ Done (FM-A3) |
+| 🟢 P3 | Beat Grid playhead overlay | ux | Low | ✅ Done (AC-U1) |
+| 🟢 P3 | Harmonic District golden glow | mechanics | Medium | ✅ Done (MM-M2, visual) |
 | 🟢 P3 | Per-building filter envelope modulation | audio | High | ⬜ Pending |
 
 ---
@@ -111,3 +114,12 @@ Changes applied:
 - `ui.js`: chord button click handler — toggles chord mode, shows toast, updates `st-active` class
 - `index.html`: `<button id="btn-chord">` in transport bar (locked by default)
 - `styles/main.css`: `#btn-chord` + `#btn-chord.st-active` styles
+
+**Wave 5 (2026-03-01): P3 — Key Change, Beat Grid, Harmonic District**
+
+Changes applied:
+- `buildings.js`: `transposePitches(semitones)` — multiplies all pitches by `2^(n/12)`, flashes all buildings (FM-A3)
+- `ui.js`: level-up handler fires key change + shake + toast when building reaches level 5 (FM-A3); beat grid button wired + tooltip
+- `renderer.js`: `_gridOverlay` flag + `_drawBeatGrid()` sweeping playhead line (AC-U1); `_detectHarmonicDistricts()` + `_drawHarmonicDistricts()` golden dashed glow (MM-M2); exposed `setGridOverlay()`, `isGridOverlay()`
+- `index.html`: `<button id="btn-grid">` added to transport bar
+- `styles/main.css`: `#btn-grid` styles

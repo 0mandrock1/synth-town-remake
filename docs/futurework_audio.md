@@ -259,13 +259,13 @@ When the player reaches "Urban Pulse" tier, unlock Chord Mode toggle in transpor
 
 **Implemented:** `_bassDrop()` in game.js, fires once (`_bassDropFired` guard). Temporary sweep osc created directly (not from pool) for one-off use.
 
-### FM-A3: Key Change on Merge
+### FM-A3: Key Change on Merge ✅
 
 **Trigger:** Player upgrades a building to level 5 (set via property panel → level slider).
 
-**Event:** Transpose all building pitches by a perfect fourth (+5 semitones) using a `setValueAtTime` on each building's pitch. This is a harmonic "resolution" moment — the city modulates to a new key.
+**Event:** Transpose all building pitches by a perfect fourth (+5 semitones). City modulates to a new key.
 
-Visual: All buildings flash white simultaneously.
+**Implemented:** `ST.Buildings.transposePitches(semitones)` multiplies all pitches by `2^(5/12)` (≈4/3), sets `b.flash = 1.5` on all buildings for simultaneous white flash. Level-up handler in `ui.js` triggers this + screen shake 3.0 + toast "🎵 Key Change" when any building first hits level 5.
 
 ### FM-A4: Generative Melody Mode (Stage 10 Candidate)
 
