@@ -293,6 +293,20 @@ main {
 #btn-chord:not(.st-locked):hover { background: rgba(100,181,246,0.1); color: #64b5f6; }
 #btn-chord.st-active { background: rgba(100,181,246,0.2); border-color: #64b5f6; color: #64b5f6; }
 
+/* === DJ BOOTH REMIX BUTTON (MM-M3) === */
+#btn-remix {
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+#btn-remix:not(.st-locked):hover { background: rgba(255,167,38,0.1); color: #ffa726; }
+#btn-remix:not(.st-locked):active { transform: scale(0.92); }
+
 /* === BEAT GRID BUTTON (AC-U1) === */
 #btn-grid {
   background: transparent;

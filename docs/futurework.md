@@ -61,6 +61,9 @@ The three critical deficits are:
 | 🟢 P3 | Key Change on Merge (level 5 → transpose +5st) | audio | Medium | ✅ Done (FM-A3) |
 | 🟢 P3 | Beat Grid playhead overlay | ux | Low | ✅ Done (AC-U1) |
 | 🟢 P3 | Harmonic District golden glow | mechanics | Medium | ✅ Done (MM-M2, visual) |
+| 🟢 P3 | First Groove city-phrase achievement | mechanics | Low | ✅ Done (MM-M1) |
+| 🟢 P3 | Congestion penalty (gain duck + indicator) | mechanics | Low | ✅ Done (PE-M2) |
+| 🟢 P3 | DJ Booth remix button | mechanics | Low | ✅ Done (MM-M3) |
 | 🟢 P3 | Per-building filter envelope modulation | audio | High | ⬜ Pending |
 
 ---
@@ -123,3 +126,12 @@ Changes applied:
 - `renderer.js`: `_gridOverlay` flag + `_drawBeatGrid()` sweeping playhead line (AC-U1); `_detectHarmonicDistricts()` + `_drawHarmonicDistricts()` golden dashed glow (MM-M2); exposed `setGridOverlay()`, `isGridOverlay()`
 - `index.html`: `<button id="btn-grid">` added to transport bar
 - `styles/main.css`: `#btn-grid` styles
+
+**Wave 6 (2026-03-01): P2/P3 mechanics — First Groove, Congestion, DJ Booth**
+
+Changes applied:
+- `game.js`: `_firstGroove()` plays city's own building pitches as a phrase on First Beat tier (MM-M1); `_checkCongestion()` ducks master gain to 0.55 + shows "⚡ Traffic Jam" when vehicles cluster (PE-M2); unlocks btn-remix at City Rhythm tier (MM-M3)
+- `vehicles.js`: `remix()` reverses all vehicle directions instantly for a musical break (MM-M3)
+- `ui.js`: remix button click handler — plays sawtooth arpeggio + shake + toast; tooltip wired
+- `index.html`: `<button id="btn-remix">` added to transport bar (locked by default)
+- `styles/main.css`: `#btn-remix` styles with orange hover + press animation

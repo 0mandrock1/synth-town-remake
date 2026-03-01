@@ -318,6 +318,25 @@ ST.UI = (function() {
     const midiBtn = document.getElementById('btn-export-midi');
     if (midiBtn) midiBtn.addEventListener('click', function() { ST.MIDI.export(); });
 
+    // MM-M3: DJ Booth remix button — unlocks at City Rhythm via game.js
+    const remixBtn = document.getElementById('btn-remix');
+    if (remixBtn) {
+      remixBtn.addEventListener('click', function() {
+        if (remixBtn.classList.contains('st-locked')) return;
+        ST.Vehicles.remix();
+        if (ST.Renderer.markShake) ST.Renderer.markShake(2.5);
+        if (ST.Audio.isReady()) {
+          [196.00, 246.94, 293.66, 392.00].forEach(function(hz, i) {
+            setTimeout(function() {
+              ST.Audio.trigger({ waveform: 'sawtooth', pitch: hz,
+                attack: 0.01, decay: 0.2, velocity: 0.4, sendReverb: 0.2 });
+            }, i * 80);
+          });
+        }
+        ST._UI.showToast('\uD83C\uDECB Remix!', 2000);
+      });
+    }
+
     // AC-U1: beat grid playhead toggle
     const gridBtn = document.getElementById('btn-grid');
     if (gridBtn) {
@@ -479,6 +498,7 @@ ST.UI = (function() {
       _addTooltip('slider-vol',    'Master Volume\nOverall output level');
       _addTooltip('score-display', 'City Score\nBuildings ×10, roads ×2, vehicles ×15\nHarmonious neighbours earn bonus points (up to +200)');
       _addTooltip('btn-export-midi', 'Export MIDI\nDownload your city composition as a .mid file');
+      _addTooltip('btn-remix', 'DJ Booth\nReverses all vehicle directions — creates a musical break\nUnlocks at City Rhythm (300 pts)');
       _addTooltip('btn-chord', 'Chord Mode\nAdds a perfect fifth to every note\nUnlocks at Urban Pulse (600 pts)');
       _addTooltip('btn-grid',  'Beat Grid\nShows a playhead sweeping left→right once per beat\nVisualize the city as a sequencer');
     },

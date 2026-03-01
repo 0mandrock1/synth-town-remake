@@ -250,6 +250,20 @@ ST.Vehicles = (function() {
     setSpeedMult: function(m) { _speedMult = m; },
     // FM-A1: chord mode toggle
     setChordMode: function(on) { _chordMode = on; },
-    getChordMode: function() { return _chordMode; }
+    getChordMode: function() { return _chordMode; },
+    // MM-M3: DJ Booth — reverse all vehicle directions for a musical "break"
+    remix: function() {
+      _vehicles.forEach(function(v) {
+        const rev  = DIR_OPPOSITE[v.dir] || v.dir;
+        const d    = DIR_DELTA[rev];
+        const nx   = v.x + d.dx;
+        const ny   = v.y + d.dy;
+        const tile = ST.Grid.getTile(nx, ny);
+        v.dir      = rev;
+        v.nextX    = (tile && tile.type === 'road') ? nx : v.x;
+        v.nextY    = (tile && tile.type === 'road') ? ny : v.y;
+        v.progress = 0;
+      });
+    }
   };
 })();
