@@ -6,6 +6,8 @@
 ST.Signs = (function() {
   console.log('[Signs] initialized');
 
+  let _signCount = 0; // SR-A2: cached counter for O(1) score calculation
+
   const TYPES = {
     trafficLight: { period: 2.0 },
     oneWay:       { defaultDir: 'E' },
@@ -21,12 +23,16 @@ ST.Signs = (function() {
       const tile = ST.Grid.getTile(x, y);
       if (!tile || tile.type !== 'road') return false;
       if (!TYPES[type]) return false;
+      const hadSign = !!tile.sign;
       const sign = { type: type, x: x, y: y, params: params || {} };
       ST.Grid.setTile(x, y, { sign: sign });
+      if (!hadSign) _signCount++;
       return true;
     },
 
     remove: function(x, y) {
+      const tile = ST.Grid.getTile(x, y);
+      if (tile && tile.sign) _signCount--;
       ST.Grid.setTile(x, y, { sign: null });
     },
 
@@ -53,6 +59,8 @@ ST.Signs = (function() {
 
       return null;
     },
+
+    count: function() { return _signCount; }, // SR-A2
 
     draw: function(ctx, x, y, sign) {
       const { TILE } = ST.Config;

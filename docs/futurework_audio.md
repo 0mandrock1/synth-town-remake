@@ -53,9 +53,9 @@ vehicle.progress += dt * speed;
 
 ---
 
-## 2. Quick Wins (P0 — 1–2 hours each)
+## 2. Quick Wins (P0 — 1–2 hours each) — ✅ IMPLEMENTED 2026-03-01
 
-### QW-A1: BPM-Quantized Trigger Scheduling
+### QW-A1: BPM-Quantized Trigger Scheduling ✅
 
 **Problem:** Triggers fire at arbitrary float times.
 
@@ -83,7 +83,7 @@ const delay = gridDur - phaseInGrid;
 
 **Result:** City sounds rhythmically locked. Grooves emerge.
 
-### QW-A2: Building Placement Confirmation Sound
+### QW-A2: Building Placement Confirmation Sound ✅
 
 **Problem:** Placing a building is silent (only roads play `_playCFeedback()`).
 
@@ -105,7 +105,7 @@ ST.Audio.trigger({
 
 **Result:** Immediate audio confirmation of every creative act. Each building type sounds distinct on placement.
 
-### QW-A3: Delay Time BPM Re-Sync on BPM Change
+### QW-A3: Delay Time BPM Re-Sync on BPM Change ✅
 
 **Problem:** `Effects.init()` sets `delayTime = 60 / BPM / 2` once at startup. BPM slider changes are not reflected in delay time.
 
@@ -127,7 +127,7 @@ setBPM: function(bpm) {
 
 ---
 
-## 3. Core Architecture Improvements (P1 — half-day each)
+## 3. Core Architecture Improvements (P1 — half-day each) — Partial, 2026-03-01
 
 ### CA-A1: Ambient City Drone Layer
 
@@ -152,7 +152,7 @@ The drone gain is `buildingCount / MAX_BUILDINGS * 0.08` (max 8% of master)
 
 **Result:** The city "breathes". Players feel the world is alive even when vehicles are sparse.
 
-### CA-A2: Per-Type Filter Envelope Modulation
+### CA-A2: Per-Type Filter Envelope Modulation ✅
 
 **Problem:** Each building type sounds the same volume/brightness regardless of the vehicle that triggers it. The bus (heaviest vehicle) should make buildings sound "bigger".
 
@@ -170,7 +170,7 @@ This is already scaffolded: `ST.Audio.trigger()` accepts `filterType` and `filte
 
 **Result:** Bus sounds like a wall of bass; bicycle sounds like a bright ping. Vehicles become timbral instruments, not just speed modifiers.
 
-### CA-A3: Scale-Aware Pitch Assignment on Placement
+### CA-A3: Scale-Aware Pitch Assignment on Placement ✅
 
 **Problem:** `_randomPitch()` picks randomly from PENTATONIC_HZ. Adjacent buildings create no harmonic relationship.
 
@@ -192,9 +192,9 @@ This is purely deterministic — no chord theory needed, just ratio math on Hz v
 
 ---
 
-## 4. Scalability Refactors (P2 — 1 day)
+## 4. Scalability Refactors (P2 — 1 day) — Partial, 2026-03-01
 
-### SR-A1: Async Impulse Response Generation
+### SR-A1: Async Impulse Response Generation ✅
 
 **Problem:** `_createImpulse(ctx, 2.0, 3)` in `effects.js` allocates `2 × sampleRate × 2` floats synchronously (≈176,400 floats at 44,100 Hz). On slow devices this blocks the main thread during `Effects.init()`.
 
@@ -212,7 +212,7 @@ function _createImpulseAsync(ctx, dur, decay, callback) {
 
 Until the buffer is ready, reverb operates dry. This prevents the startup stutter.
 
-### SR-A2: Score Counter Cache
+### SR-A2: Score Counter Cache ✅
 
 **Problem:** `ST.Score.calculate()` is called every 1.0 second by `ST.Game._loop` AND on every `Unlocks.check()` call. It iterates all buildings + full tile grid each call.
 

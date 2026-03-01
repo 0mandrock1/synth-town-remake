@@ -76,26 +76,29 @@ ST.Audio = (function() {
         victim.osc.stop(now + 0.01);
       }
 
+      // QW-A1: allow scheduling to a future beat boundary
+      const startTime = (params.startTime && params.startTime > now) ? params.startTime : now;
+
       const osc = _ctx.createOscillator();
       const env = _ctx.createGain();
       osc.type = waveform;
       osc.frequency.value = pitch;
 
       if (attack > 0) {
-        env.gain.setValueAtTime(0.001, now);
-        env.gain.linearRampToValueAtTime(0.4 * velocity, now + attack);
+        env.gain.setValueAtTime(0.001, startTime);
+        env.gain.linearRampToValueAtTime(0.4 * velocity, startTime + attack);
       } else {
-        env.gain.setValueAtTime(0.4 * velocity, now);
+        env.gain.setValueAtTime(0.4 * velocity, startTime);
       }
-      env.gain.exponentialRampToValueAtTime(0.001, now + attack + decay);
+      env.gain.exponentialRampToValueAtTime(0.001, startTime + attack + decay);
 
       _connectWithFilter(osc, env, filterType, filterCutoff);
       env.connect(_masterGain);
       _addSends(env, sendDelay, sendReverb);
 
-      osc.start(now);
-      osc.stop(now + attack + decay + 0.05);
-      _voices.push({ osc: osc, env: env, endTime: now + attack + decay + 0.1 });
+      osc.start(startTime);
+      osc.stop(startTime + attack + decay + 0.05);
+      _voices.push({ osc: osc, env: env, endTime: startTime + attack + decay + 0.1 });
 
       if (typeof ST.Audio.onTrigger === 'function') ST.Audio.onTrigger(params);
       if (ST.Config.DEV) console.log('[Audio] trigger:', waveform, pitch);
@@ -103,6 +106,10 @@ ST.Audio = (function() {
 
     setBPM: function(bpm) {
       _bpm = Math.max(ST.Config.BPM_MIN, Math.min(ST.Config.BPM_MAX, bpm));
+      // QW-A3: keep delay time in sync with BPM for rhythmic echo
+      if (ST.Effects && ST.Effects.getDelay()) {
+        ST.Effects.setDelayTime(60 / _bpm / 2);
+      }
     },
 
     getBPM:        function() { return _bpm; },

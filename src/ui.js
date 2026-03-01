@@ -13,6 +13,41 @@ ST.UI = (function() {
   let _selectedBuilding = null;
   let _hoverTile        = null;
 
+  // QW-U3: hover preview hum
+  let _hoverOsc  = null;
+  let _hoverGain = null;
+  let _hoverPitch = 0;
+
+  function _startHoverHum(waveform, pitch) {
+    if (!ST.Audio.isReady()) return;
+    if (_hoverOsc && _hoverPitch === pitch) return; // already humming same note
+    _stopHoverHum();
+    const ctx = ST.Audio.getContext();
+    _hoverPitch = pitch;
+    _hoverOsc  = ctx.createOscillator();
+    _hoverGain = ctx.createGain();
+    _hoverOsc.type = waveform;
+    _hoverOsc.frequency.value = pitch;
+    _hoverGain.gain.setValueAtTime(0.001, ctx.currentTime);
+    _hoverGain.gain.linearRampToValueAtTime(0.025, ctx.currentTime + 0.05);
+    _hoverOsc.connect(_hoverGain);
+    _hoverGain.connect(ST.Audio.getMasterGain());
+    _hoverOsc.start();
+  }
+
+  function _stopHoverHum() {
+    if (_hoverGain && _hoverOsc) {
+      const ctx = ST.Audio.getContext();
+      if (ctx) {
+        _hoverGain.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
+        try { _hoverOsc.stop(ctx.currentTime + 0.1); } catch(e) { /* already stopped */ }
+      }
+    }
+    _hoverOsc  = null;
+    _hoverGain = null;
+    _hoverPitch = 0;
+  }
+
   const _onboarding = ST._UI.createOnboarding();
 
   const _toolbar = ST._UI.createToolbar({
@@ -29,6 +64,27 @@ ST.UI = (function() {
     }
   }
 
+  // QW-M2: immediate score display refresh
+  function _refreshScore() {
+    const scoreEl = document.getElementById('score-display');
+    if (scoreEl) {
+      scoreEl.textContent = ST.Score.calculate() + ' \u2014 ' + ST.Score.getThreshold().name;
+    }
+  }
+
+  // QW-U2: confirmation sounds for removal
+  function _playRemoveSound(isBuilding) {
+    if (!ST.Audio.isReady()) return;
+    if (isBuilding) {
+      ST.Audio.trigger({ waveform: 'sine', pitch: 440, decay: 0.2, velocity: 0.15, sendDelay: 0, sendReverb: 0 });
+      setTimeout(function() {
+        ST.Audio.trigger({ waveform: 'sine', pitch: 220, decay: 0.15, velocity: 0.08, sendDelay: 0, sendReverb: 0 });
+      }, 80);
+    } else {
+      ST.Audio.trigger({ waveform: 'sawtooth', pitch: 80, decay: 0.08, velocity: 0.1, sendDelay: 0, sendReverb: 0 });
+    }
+  }
+
   // --- remove tool: handles sign / road / building with undo ---
   function _handleRemoveTool(gx, gy, tile) {
     if (!tile) return;
@@ -42,6 +98,7 @@ ST.UI = (function() {
     } else if (tile.type === 'road') {
       const savedSign = tile.sign ? { type: tile.sign.type, params: Object.assign({}, tile.sign.params) } : null;
       ST.Roads.remove(gx, gy);
+      _playRemoveSound(false);
       ST.Vehicles.getAll().forEach(function(v) {
         if ((v.x === gx && v.y === gy) || (v.nextX === gx && v.nextY === gy)) ST.Vehicles.remove(v);
       });
@@ -61,6 +118,7 @@ ST.UI = (function() {
       const b = tile.building;
       const snap = { type: b.type, x: gx, y: gy, pitch: b.pitch, level: b.level };
       if (_selectedBuilding && _selectedBuilding.x === gx && _selectedBuilding.y === gy) ST.UI.hideProperties();
+      _playRemoveSound(true);
       ST.Buildings.remove(gx, gy);
       ST.History.push({
         undo: function() {
@@ -89,6 +147,7 @@ ST.UI = (function() {
       const ok = ST.Roads.place(gx, gy);
       if (ok) {
         _playCFeedback();
+        _refreshScore();
         ST.History.push({ undo: function() { ST.Roads.remove(gx, gy); }, redo: function() { ST.Roads.place(gx, gy); } });
         if (_onboarding.getStep() === 1) _onboarding.advance(2);
       }
@@ -105,6 +164,7 @@ ST.UI = (function() {
       if (tile && tile.type === 'road') {
         let v = ST.Vehicles.spawn(_tool, gx, gy);
         if (v) {
+          _refreshScore();
           const vType = _tool;
           ST.History.push({ undo: function() { ST.Vehicles.remove(v); }, redo: function() { v = ST.Vehicles.spawn(vType, gx, gy); } });
         }
@@ -123,6 +183,7 @@ ST.UI = (function() {
     } else if (ST.Buildings.TYPES[_tool]) {
       const b = ST.Buildings.create(_tool, gx, gy);
       if (b) {
+        _refreshScore();
         // Preview the building's own sound immediately
         if (ST.Audio.isReady()) {
           ST.Audio.trigger({ waveform: b.waveform, pitch: b.pitch, decay: 0.4, velocity: 0.7, sendDelay: 0, sendReverb: 0 });
@@ -160,12 +221,25 @@ ST.UI = (function() {
         y: Math.floor((e.clientY - rect.top)  / rect.height * ST.Config.GRID_H)
       };
       if (_mouseDown && (_tool === 'road' || _tool === 'remove')) _onCanvasAction(e);
+      // QW-U3: hover hum — play a quiet note preview for building tools
+      const def = ST.Buildings.TYPES[_tool];
+      if (def && ST.Grid.isInBounds(_hoverTile.x, _hoverTile.y)) {
+        const tile = ST.Grid.getTile(_hoverTile.x, _hoverTile.y);
+        if (tile && tile.type === 'empty') {
+          _startHoverHum(def.waveform, def.pitchDefault);
+        } else {
+          _stopHoverHum();
+        }
+      } else {
+        _stopHoverHum();
+      }
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
     });
     canvas.addEventListener('mouseup',    function() { _mouseDown = false; });
     canvas.addEventListener('mouseleave', function() {
       _mouseDown = false;
       _hoverTile = null;
+      _stopHoverHum();
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
     });
   }
@@ -283,10 +357,42 @@ ST.UI = (function() {
     decayEl.textContent = props.decay + 's';
     _addRow('Decay', decayEl);
 
-    const levelEl = document.createElement('div');
-    levelEl.className = 'st-props-value';
-    levelEl.textContent = 'Lv ' + props.level;
-    _addRow('Level', levelEl);
+    // QW-M1: level control with audio resolution on upgrade
+    const levelWrap = document.createElement('div');
+    levelWrap.className = 'st-props-value';
+    const levelDown = document.createElement('button');
+    levelDown.className = 'st-props-btn';
+    levelDown.textContent = '\u2212';
+    const levelNum = document.createElement('span');
+    levelNum.textContent = ' Lv ' + props.level + ' ';
+    const levelUp = document.createElement('button');
+    levelUp.className = 'st-props-btn';
+    levelUp.textContent = '+';
+    levelWrap.appendChild(levelDown);
+    levelWrap.appendChild(levelNum);
+    levelWrap.appendChild(levelUp);
+
+    levelUp.addEventListener('click', function() {
+      const newLevel = Math.min(8, (building.level || 1) + 1);
+      if (newLevel === building.level) return;
+      ST.Buildings.setProperty(building, 'level', newLevel);
+      levelNum.textContent = ' Lv ' + newLevel + ' ';
+      if (ST.Audio.isReady()) {
+        const resolveNote = building.pitch * Math.pow(2, (newLevel - 1) / 12);
+        ST.Audio.trigger({ waveform: building.waveform, pitch: resolveNote,
+          attack: 0.05, decay: 0.4, velocity: 0.5, sendReverb: 0.3 });
+      }
+      if (ST.Renderer && ST.Renderer.markShake) ST.Renderer.markShake(2.0);
+      if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+    });
+    levelDown.addEventListener('click', function() {
+      const newLevel = Math.max(1, (building.level || 1) - 1);
+      if (newLevel === building.level) return;
+      ST.Buildings.setProperty(building, 'level', newLevel);
+      levelNum.textContent = ' Lv ' + newLevel + ' ';
+      if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+    });
+    _addRow('Level', levelWrap);
 
     panel.appendChild(body);
     if (app) app.style.gridTemplateColumns = '200px 1fr 220px';
@@ -307,6 +413,7 @@ ST.UI = (function() {
 
     setTool: function(toolName) {
       _tool = toolName;
+      _stopHoverHum();
       _toolbar.updateToolBtns(_tool);
       const canvas = document.getElementById('game');
       if (canvas) canvas.style.cursor = toolName === 'select' ? 'pointer' : 'crosshair';

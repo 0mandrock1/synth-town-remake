@@ -55,9 +55,9 @@ Missing: a step that explicitly says "listen to your city play" and draws attent
 
 ---
 
-## 2. Quick Wins (P0 — 1–4 hours each)
+## 2. Quick Wins (P0 — 1–4 hours each) — ✅ IMPLEMENTED 2026-03-01
 
-### QW-U1: Building Placement Sound + Visual Pop
+### QW-U1: Building Placement Sound + Visual Pop ✅
 
 **Problem:** Silent placement breaks the "instrument" metaphor.
 
@@ -87,7 +87,7 @@ if (b.placementFlash > 0) {
 
 **Result:** Buildings "pop" into existence with a bounce. Combined with the placement note, every click feels like pressing a key on a synthesizer.
 
-### QW-U2: Remove Tool Confirmation Sound
+### QW-U2: Remove Tool Confirmation Sound ✅
 
 **Problem:** Removing a tile is silent. Players delete things they didn't intend to and get no feedback.
 
@@ -103,7 +103,7 @@ setTimeout(() => ST.Audio.trigger({ waveform: 'sine', pitch: 220, decay: 0.15, v
 ST.Audio.trigger({ waveform: 'sawtooth', pitch: 80, decay: 0.08, velocity: 0.1 });
 ```
 
-### QW-U3: Hover Preview Hum
+### QW-U3: Hover Preview Hum ✅
 
 **Problem:** Hovering over an empty tile with a building tool selected shows a color change but no audio preview.
 
@@ -143,7 +143,7 @@ function _stopHoverHum() {
 
 **Result:** The cursor becomes an audio probe. Players "hear" what a building will sound like before committing. This is the "instrument feel" the game promises.
 
-### QW-U4: BPM Slider Beat-Pulse Indicator
+### QW-U4: BPM Slider Beat-Pulse Indicator ✅
 
 **Problem:** The BPM slider is a static UI element with no relationship to the music playing.
 
@@ -164,9 +164,9 @@ The class `pulse` is toggled by checking when `_beatPhase` crosses integer beat 
 
 ---
 
-## 3. Juice & Dopamine Enhancements (P1)
+## 3. Juice & Dopamine Enhancements (P1) — Partial, 2026-03-01
 
-### JD-U1: Screen Shake on Musical Events
+### JD-U1: Screen Shake on Musical Events ✅
 
 **Problem:** No physical "impact" feeling on key moments (vehicle triggers building, Bass Drop, level up).
 
@@ -194,7 +194,7 @@ markShake: function(intensity) { _shake = Math.min(8, _shake + intensity); }
 - Bass Drop: `5.0` (full shake, 0.5s decay)
 - Unlock new feature: `1.5`
 
-### JD-U2: Particle Burst on Building Flash
+### JD-U2: Particle Burst on Building Flash ✅
 
 **Problem:** The current flash is a glow (CSS `shadowBlur`) that appears and fades. It has no directionality or energy.
 

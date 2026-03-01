@@ -29,17 +29,66 @@ ST.Vehicles = (function() {
     return choices[Math.floor(Math.random() * choices.length)];
   }
 
+  // CA-A2: per-vehicle timbral filter — bus=warm/fat, bicycle=bright, car=neutral
+  const VEHICLE_FILTER = {
+    car:     { filterType: 'lowpass',  filterCutoff: 3000 },
+    bicycle: { filterType: 'bandpass', filterCutoff: 2200 },
+    bus:     { filterType: 'lowpass',  filterCutoff: 800  }
+  };
+
   function _triggerNearby(vehicle) {
     const typeDef = TYPES[vehicle.type];
+    const fp = VEHICLE_FILTER[vehicle.type] || {};
+    // QW-A1: snap trigger to next 16th-note grid boundary
+    let quantizedStart;
+    if (ST.Audio.isReady() && ST.Game && ST.Game.getBeatPhase) {
+      const ctx = ST.Audio.getContext();
+      const now = ctx.currentTime;
+      const beatDur = 60 / ST.Audio.getBPM();
+      const phase = ST.Game.getBeatPhase();
+      const gridDur = beatDur / 4; // 16th notes
+      const phaseInGrid = (phase % 0.25) * beatDur;
+      const delay = gridDur - phaseInGrid;
+      quantizedStart = now + Math.min(delay, gridDur);
+    }
     ST.Grid.getNeighbors(vehicle.x, vehicle.y).forEach(function(nb) {
       if (nb.tile.type === 'building' && nb.tile.building) {
         const b = nb.tile.building;
+        const level = b.level || 1;
         ST.Audio.trigger({
           waveform: b.waveform, pitch: b.pitch,
           attack: typeDef.attack, decay: typeDef.decay,
-          velocity: typeDef.velocityMult
+          velocity: typeDef.velocityMult,
+          filterType: fp.filterType, filterCutoff: fp.filterCutoff,
+          startTime: quantizedStart
         });
+        // CLR-M3: higher level buildings add harmonic overtone layers
+        if (level >= 3) {
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch * 2,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult * 0.25,
+            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+          });
+        }
+        if (level >= 5) {
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch * 1.5,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult * 0.30,
+            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+          });
+        }
+        if (level >= 7) {
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch * 3,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult * 0.20,
+            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+          });
+        }
         b.flash = 1.0;
+        if (ST.Renderer && ST.Renderer.markShake) ST.Renderer.markShake(0.5);
       }
     });
   }
@@ -113,6 +162,8 @@ ST.Vehicles = (function() {
       }
 
       _vehicles.push(vehicle);
+      // QW-M3: immediate "engine start" sound — trigger adjacent buildings on spawn
+      _triggerNearby(vehicle);
       return vehicle;
     },
 

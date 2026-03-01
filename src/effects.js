@@ -15,6 +15,7 @@ ST.Effects = (function() {
   let _sendDelay     = 0;
   let _sendReverb    = 0;
   let _preset        = 'dry';
+  let _manualPreset  = false; // CLR-M4: true when player explicitly chose a preset
 
   const PRESETS = {
     dry:   { sendDelay: 0,    sendReverb: 0   },
@@ -23,16 +24,40 @@ ST.Effects = (function() {
     space: { sendDelay: 0.25, sendReverb: 0.5 }
   };
 
-  function _createImpulse(ctx, dur, decay) {
+  // SR-A1: generate reverb impulse asynchronously to avoid startup stutter
+  function _createImpulseAsync(ctx, dur, decay, reverb) {
     const len = Math.floor(ctx.sampleRate * dur);
-    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const d = buf.getChannelData(ch);
-      for (let i = 0; i < len; i++) {
-        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    const offCtx = new OfflineAudioContext(2, len, ctx.sampleRate);
+    const noise = offCtx.createOscillator();
+    noise.type = 'sawtooth';
+    const noiseGain = offCtx.createGain();
+    // Use a sawtooth oscillator as a stand-in noise source — then bake the envelope
+    noise.connect(noiseGain);
+    noiseGain.connect(offCtx.destination);
+    noise.start(0);
+    noise.stop(dur);
+    offCtx.startRendering().then(function() {
+      // Build impulse manually in normal AudioContext buffers (offline result unused)
+      const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+        }
       }
-    }
-    return buf;
+      reverb.buffer = buf;
+      console.log('[Effects] reverb impulse ready (async)');
+    }).catch(function() {
+      // Fallback: generate synchronously
+      const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+        }
+      }
+      reverb.buffer = buf;
+    });
   }
 
   return {
@@ -64,9 +89,10 @@ ST.Effects = (function() {
 
       _reverbInput = ctx.createGain();
       _reverb = ctx.createConvolver();
-      _reverb.buffer = _createImpulse(ctx, 2.0, 3);
       _reverbInput.connect(_reverb);
       _reverb.connect(master);
+      // SR-A1: generate impulse async — reverb operates dry until buffer is ready
+      _createImpulseAsync(ctx, 2.0, 3, _reverb);
 
       console.log('[Effects] audio chain ready');
     },
@@ -91,10 +117,22 @@ ST.Effects = (function() {
     setPreset: function(name) {
       const p = PRESETS[name];
       if (!p) return;
+      _preset       = name;
+      _sendDelay    = p.sendDelay;
+      _sendReverb   = p.sendReverb;
+      _manualPreset = true; // CLR-M4: manual choice locks out auto-tier presets
+    },
+
+    // CLR-M4: auto-apply preset without locking out future auto-changes
+    setPresetAuto: function(name) {
+      const p = PRESETS[name];
+      if (!p || _manualPreset) return;
       _preset     = name;
       _sendDelay  = p.sendDelay;
       _sendReverb = p.sendReverb;
     },
+
+    isManualPreset: function() { return _manualPreset; },
 
     PRESETS: PRESETS
   };

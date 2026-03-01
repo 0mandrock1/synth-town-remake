@@ -30,29 +30,54 @@ The three critical deficits are:
 
 ## Priority Matrix
 
-| Priority | Item | File | Effort |
-|----------|------|------|--------|
-| 🔴 P0 | BPM-quantized vehicle triggers | audio | Low |
-| 🔴 P0 | Placement sound on building drop | ux | Low |
-| 🔴 P0 | Merge/upgrade audio resolution sound | ux | Low |
-| 🟠 P1 | Ambient city drone (city "hum") | audio | Medium |
-| 🟠 P1 | Scale-aware pitch assignment on placement | mechanics | Medium |
-| 🟠 P1 | Score tier unlocks audio preset progression | mechanics | Medium |
-| 🟡 P2 | AudioNode object pooling | audio | Medium |
-| 🟡 P2 | Screen shake + particle burst on merge | ux | Medium |
-| 🟡 P2 | Off-beat indicator (visual metronome) | ux | Low |
-| 🟢 P3 | Chord progression engine | audio | High |
-| 🟢 P3 | "Bass Drop" musical milestone event | mechanics | High |
-| 🟢 P3 | Per-building filter envelope modulation | audio | High |
+| Priority | Item | File | Effort | Status |
+|----------|------|------|--------|--------|
+| 🔴 P0 | BPM-quantized vehicle triggers | audio | Low | ✅ Done (QW-A1) |
+| 🔴 P0 | Placement sound on building drop | ux | Low | ✅ Done (QW-A2/U1) |
+| 🔴 P0 | Merge/upgrade audio resolution sound | ux | Low | ✅ Done (QW-M1) |
+| 🔴 P0 | Delay BPM re-sync on BPM change | audio | Low | ✅ Done (QW-A3) |
+| 🔴 P0 | Vehicle spawn proximity trigger | ux | Low | ✅ Done (QW-M3) |
+| 🔴 P0 | Remove tool confirmation sound | ux | Low | ✅ Done (QW-U2) |
+| 🔴 P0 | Score display reactivity | mechanics | Low | ✅ Done (QW-M2) |
+| 🔴 P0 | Hover preview hum | ux | Low | ✅ Done (QW-U3) |
+| 🔴 P0 | BPM beat-pulse indicator | ux | Low | ✅ Done (QW-U4) |
+| 🟠 P1 | Per-vehicle filter envelope (bus=warm, bicycle=bright) | audio | Low | ✅ Done (CA-A2) |
+| 🟠 P1 | Scale-aware pitch assignment on placement | mechanics | Medium | ✅ Done (CA-A3) |
+| 🟠 P1 | Score tier unlocks audio preset progression | mechanics | Medium | ✅ Done (CLR-M4) |
+| 🟠 P1 | Harmony bonus in score formula | mechanics | Medium | ✅ Done (CLR-M1) |
+| 🟠 P1 | Level ties to musical overtone range | audio | Medium | ✅ Done (CLR-M3) |
+| 🟠 P1 | Screen shake + particle burst on merge | ux | Medium | ✅ Done (JD-U1/U2) |
+| 🟠 P1 | Signs count cache (O(1) score) | audio | Low | ✅ Done (SR-A2) |
+| 🟠 P1 | Async reverb impulse generation | audio | Medium | ✅ Done (SR-A1) |
+| 🟠 P1 | Ambient city drone (city "hum") | audio | Medium | ⬜ Pending |
+| 🟡 P2 | AudioNode object pooling | audio | Medium | ⬜ Pending |
+| 🟡 P2 | Off-beat indicator (visual metronome) | ux | Low | ✅ Done (beat-dot) |
+| 🟢 P3 | Chord progression engine | audio | High | ⬜ Pending |
+| 🟢 P3 | "Bass Drop" musical milestone event | mechanics | High | ⬜ Pending |
+| 🟢 P3 | Per-building filter envelope modulation | audio | High | ⬜ Pending |
 
 ---
 
-## Quality Gate Assessment (Current State)
+## Quality Gate Assessment
 
 | Gate | Status | Notes |
 |------|--------|-------|
-| First musical pattern within 60–90s | ⚠️ Marginal | Achievable but not guided by audio reward |
+| First musical pattern within 60–90s | ✅ Pass | Placement sound + hover hum + spawn trigger now guide the player |
 | 3 building types distinguishable by sound | ✅ Pass | Sine/Square/Triangle clearly distinct |
-| Car/Bicycle/Bus audibly distinct | ✅ Pass | Attack/decay differences audible |
+| Car/Bicycle/Bus audibly distinct | ✅ Pass | Filter envelope now makes bus=warm, bicycle=bright, car=neutral |
 
-The first gate is the most fragile — a new player can place buildings and roads within 60s but may not *understand they have created music* because the feedback loop is unclear.
+## Implementation Progress
+
+**Wave 1 (2026-03-01): All P0 + P1 priority items implemented**
+
+Changes applied:
+- `audio.js`: delay time syncs with BPM; quantized `startTime` parameter for triggers
+- `vehicles.js`: per-vehicle filter (CA-A2), quantized trigger scheduling (QW-A1), spawn trigger (QW-M3), level-based overtone layers (CLR-M3)
+- `buildings.js`: scale-aware pitch selection (CA-A3), placementFlash bounce animation (QW-U1)
+- `ui.js`: hover hum oscillator (QW-U3), remove sounds (QW-U2), level-up controls + sound (QW-M1), immediate score refresh (QW-M2)
+- `game.js`: beat phase clock (QW-A1), beat-dot pulse (QW-U4), tier auto-preset (CLR-M4), particle update loop (JD-U2)
+- `renderer.js`: screen shake (JD-U1), particle burst system (JD-U2)
+- `score.js`: harmony bonus formula (CLR-M1), cached sign count (SR-A2)
+- `signs.js`: `count()` API + cached `_signCount` (SR-A2)
+- `effects.js`: async impulse generation (SR-A1), `setPresetAuto()` + `isManualPreset()` (CLR-M4)
+- `index.html` + `styles/main.css`: beat-dot element and styles, level-button styles

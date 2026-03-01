@@ -27,6 +27,34 @@ ST.Buildings = (function() {
     return PENTATONIC_HZ[Math.floor(Math.random() * PENTATONIC_HZ.length)];
   }
 
+  // CA-A3: pick pitch that forms the strongest harmonic interval with neighbors
+  function _smartPitch(x, y) {
+    const neighborPitches = [];
+    ST.Grid.getNeighbors(x, y).forEach(function(nb) {
+      if (nb.tile.type === 'building' && nb.tile.building) {
+        neighborPitches.push(nb.tile.building.pitch);
+      }
+    });
+    if (neighborPitches.length === 0) return _randomPitch();
+
+    let bestScore = -1;
+    let bestPitch = PENTATONIC_HZ[0];
+    PENTATONIC_HZ.forEach(function(hz) {
+      let score = 0;
+      neighborPitches.forEach(function(nHz) {
+        let r = hz > nHz ? hz / nHz : nHz / hz;
+        while (r > 2.0) r /= 2;
+        while (r < 1.0) r *= 2;
+        if (Math.abs(r - 2.0) < 0.05 || Math.abs(r - 1.0) < 0.05) score += 15;
+        else if (Math.abs(r - 1.5) < 0.05)  score += 10;
+        else if (Math.abs(r - 4 / 3) < 0.05) score += 8;
+        else if (Math.abs(r - 5 / 4) < 0.05) score += 5;
+      });
+      if (score > bestScore) { bestScore = score; bestPitch = hz; }
+    });
+    return bestPitch;
+  }
+
   // --- shape-specific roof decorations ---
 
   function _drawSine(ctx, bx, by, bw, color) {
@@ -87,7 +115,8 @@ ST.Buildings = (function() {
       const building = {
         type: type, x: x, y: y,
         waveform: def.waveform, color: def.color,
-        pitch: _randomPitch(), decay: def.decay, level: 1, flash: 0
+        pitch: _smartPitch(x, y), decay: def.decay, level: 1,
+        flash: 0, placementFlash: 1.0  // QW-U1: scale pop on placement
       };
       _buildings.push(building);
       ST.Grid.setTile(x, y, { type: 'building', building: building });
@@ -112,8 +141,20 @@ ST.Buildings = (function() {
       const bx = b.x * TILE + Math.round((TILE - bw) / 2);
       const by = b.y * TILE + TILE - 2;
 
+      const needsSave = b.flash > 0 || b.placementFlash > 0;
+      if (needsSave) ctx.save();
+
+      // QW-U1: scale bounce on placement
+      if (b.placementFlash > 0) {
+        const scale = 1 + b.placementFlash * 0.25;
+        const cx = b.x * TILE + TILE / 2;
+        const cy = b.y * TILE + TILE / 2;
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+        ctx.translate(-cx, -cy);
+      }
+
       if (b.flash > 0) {
-        ctx.save();
         ctx.shadowColor = b.color;
         ctx.shadowBlur  = 4 + b.flash * 16;
       }
@@ -127,7 +168,7 @@ ST.Buildings = (function() {
       if (b.type === 'sawtooth') _drawSawtooth(ctx, bx, by - bh, bw, b.color);
       if (b.type === 'pulse')    _drawPulse(ctx, bx, by - bh, bw, b.color);
 
-      if (b.flash > 0) ctx.restore();
+      if (needsSave) ctx.restore();
     },
 
     getAt: function(x, y) {

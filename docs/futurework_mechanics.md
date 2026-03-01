@@ -69,9 +69,9 @@ A player can reach "Synth City" tier by placing 50 identical buildings at random
 
 ---
 
-## 2. Quick Wins (P0 — hours)
+## 2. Quick Wins (P0 — hours) — ✅ IMPLEMENTED 2026-03-01
 
-### QW-M1: Merge-to-Upgrade Audio Resolution
+### QW-M1: Merge-to-Upgrade Audio Resolution ✅
 
 **Problem:** Upgrading a building's level via the properties panel is silent and invisible from the grid.
 
@@ -95,13 +95,13 @@ b.flash = 1.5; // extra-bright flash on level up
 
 **Result:** The merge/upgrade moment becomes the most satisfying interaction in the game.
 
-### QW-M2: Score Display Reactivity
+### QW-M2: Score Display Reactivity ✅
 
 **Problem:** Score is updated every 1.0 second regardless of what happened. It feels stale.
 
 **Solution:** Update the score display immediately when a building/road/vehicle is placed. Keep the 1.0s polling for unlock checks, but decouple it from the visual counter. Add a CSS animation (`scale: 1.05 → 1.0`) on score change.
 
-### QW-M3: Vehicle Spawn Proximity Trigger
+### QW-M3: Vehicle Spawn Proximity Trigger ✅
 
 **Problem:** Spawning a vehicle does not produce sound until the vehicle happens to pass a building (which may be several tiles away and take seconds).
 
@@ -109,9 +109,9 @@ b.flash = 1.5; // extra-bright flash on level up
 
 ---
 
-## 3. Core Loop Refinements (P1 — days)
+## 3. Core Loop Refinements (P1 — days) — Partial, 2026-03-01
 
-### CLR-M1: Musical Score Component
+### CLR-M1: Musical Score Component ✅
 
 **Problem:** Score formula does not reward musical quality — only quantity.
 
@@ -143,7 +143,7 @@ This is computed only during the 1.0s score poll (not every frame). Players disc
 - The global score adds `vehicleRouteScore × 2` for all active vehicles
 - This rewards compact, dense road networks that give vehicles many building encounters
 
-### CLR-M3: Building Level Ties to Musical Range
+### CLR-M3: Building Level Ties to Musical Range ✅
 
 **Problem:** `level` property (1–8) affects building height visually but has no audio meaning.
 
@@ -158,7 +158,7 @@ level 7–8: chord stab — root + fifth + octave (a power chord)
 
 This is a pure audio enhancement with no formula changes. As players upgrade buildings, the soundscape naturally evolves from melody to harmony to chords. **Level becomes the game's "arrangement complexity" axis.**
 
-### CLR-M4: Score Tier Audio Evolution
+### CLR-M4: Score Tier Audio Evolution ✅
 
 **Problem:** Score tier names promise sonic evolution ("Street Groove", "Urban Pulse") that never arrives.
 

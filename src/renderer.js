@@ -9,6 +9,45 @@ ST.Renderer = (function() {
   let _canvas = null;
   let _ctx    = null;
 
+  // JD-U1: screen shake state
+  let _shake = 0;
+
+  // JD-U2: lightweight particle system
+  const _particles = [];
+
+  function _emitParticles(px, py, color, count) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 20 + Math.random() * 30;
+      _particles.push({
+        x: px, y: py, color: color,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1.0, size: 2 + Math.random() * 2
+      });
+    }
+  }
+
+  function _updateParticles(dt) {
+    for (let i = _particles.length - 1; i >= 0; i--) {
+      const p = _particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt * 2.5;
+      if (p.life <= 0) _particles.splice(i, 1);
+    }
+  }
+
+  function _drawParticles(ctx) {
+    if (_particles.length === 0) return;
+    _particles.forEach(function(p) {
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    });
+    ctx.globalAlpha = 1.0;
+  }
+
   function _drawDecorations(ctx) {
     const deco = ST.Score.getThreshold().decorations;
     if (deco === 0) return;
@@ -91,10 +130,32 @@ ST.Renderer = (function() {
       _ctx.scale(dpr, dpr);
     },
 
+    // JD-U2: called from game loop to advance particle state
+    updateParticles: function(dt) { _updateParticles(dt); },
+
+    // JD-U2: emit particles at canvas pixel position (from building tile coords)
+    emitParticles: function(tileX, tileY, color, count) {
+      const { TILE } = ST.Config;
+      _emitParticles(tileX * TILE + TILE / 2, tileY * TILE + TILE / 2, color, count);
+    },
+
+    // JD-U1: add screen shake
+    markShake: function(intensity) { _shake = Math.min(8, _shake + intensity); },
+
     drawFrame: function() {
       const { GRID_W, GRID_H, TILE, COLORS } = ST.Config;
       _ctx.fillStyle = COLORS.bg;
       _ctx.fillRect(0, 0, GRID_W * TILE, GRID_H * TILE);
+
+      // JD-U1: apply shake offset for this frame
+      _ctx.save();
+      if (_shake > 0) {
+        _ctx.translate(
+          (Math.random() - 0.5) * _shake,
+          (Math.random() - 0.5) * _shake
+        );
+        _shake = Math.max(0, _shake - 0.5);
+      }
 
       ST.Grid.forEachTile(function(tile, x, y) {
         if (tile.type === 'road') ST.Roads.draw(_ctx, x, y, tile);
@@ -111,8 +172,11 @@ ST.Renderer = (function() {
       });
 
       ST.Vehicles.draw(_ctx);
+      _drawParticles(_ctx); // JD-U2
       _drawHoverPreview(_ctx);
       _drawGrid(_ctx);
+
+      _ctx.restore();
     },
 
     // Public stub — reserved for future dirty-region optimisation.
