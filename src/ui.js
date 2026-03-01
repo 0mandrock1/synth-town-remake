@@ -317,6 +317,18 @@ ST.UI = (function() {
     }
     const midiBtn = document.getElementById('btn-export-midi');
     if (midiBtn) midiBtn.addEventListener('click', function() { ST.MIDI.export(); });
+
+    // FM-A1: chord mode toggle — unlocks visually at Urban Pulse tier via game.js
+    const chordBtn = document.getElementById('btn-chord');
+    if (chordBtn) {
+      chordBtn.addEventListener('click', function() {
+        if (chordBtn.classList.contains('st-locked')) return;
+        const on = !ST.Vehicles.getChordMode();
+        ST.Vehicles.setChordMode(on);
+        chordBtn.classList.toggle('st-active', on);
+        ST._UI.showToast(on ? '\u266a Chord Mode ON — fifth added to every note' : 'Chord Mode OFF', 2500);
+      });
+    }
   }
 
   function _setupKeyboard() {
@@ -451,6 +463,7 @@ ST.UI = (function() {
       _addTooltip('slider-vol',    'Master Volume\nOverall output level');
       _addTooltip('score-display', 'City Score\nBuildings ×10, roads ×2, vehicles ×15\nHarmonious neighbours earn bonus points (up to +200)');
       _addTooltip('btn-export-midi', 'Export MIDI\nDownload your city composition as a .mid file');
+      _addTooltip('btn-chord', 'Chord Mode\nAdds a perfect fifth to every note\nUnlocks at Urban Pulse (600 pts)');
     },
 
     setTool: function(toolName) {

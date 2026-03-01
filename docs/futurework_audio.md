@@ -237,23 +237,27 @@ Note: Oscillator nodes cannot be restarted after `.stop()`, so the pool must use
 
 ## 5. Feature Roadmap — Musical Milestones (P3)
 
-### FM-A1: Chord Mode (Score ≥ 400)
+### FM-A1: Chord Mode (Score ≥ 400) ✅
 
 When the player reaches "Urban Pulse" tier, unlock Chord Mode toggle in transport bar. In Chord Mode:
 - When a vehicle triggers a building, also trigger its **fifth** (pitch × 1.5) at -6dB
 - The city shifts from monophonic to harmonic
 
-### FM-A2: Bass Drop Event
+**Implemented:** `♩+` button in transport bar, locked until Urban Pulse; toggles `_chordMode` in Vehicles; adds fifth voice at velocity × 0.5 on each trigger.
+
+### FM-A2: Bass Drop Event ✅
 
 **Trigger:** Player reaches "Synth City" tier (1000 pts) for the first time.
 
 **Event sequence:**
-1. All vehicles stop (0.5s)
-2. Master gain ducks to 20% over 1.5s (`setTargetAtTime`)
+1. All vehicles stop (0.5s) via `setSpeedMult(0)`
+2. Master gain ducks to 15% over 0.5s
 3. A sub-bass oscillator sweeps from 40Hz → 80Hz over 2s
-4. Master gain returns to 100% over 0.5s
+4. Master gain returns to 80% over 0.5s after 2s
 5. All vehicles resume at double speed for 4 seconds ("drop" feel)
-6. Toast: "🔊 Synth City — Bass Drop!"
+6. Toast: "🔊 Synth City — Bass Drop!" + heavy screen shake (5.0)
+
+**Implemented:** `_bassDrop()` in game.js, fires once (`_bassDropFired` guard). Temporary sweep osc created directly (not from pool) for one-off use.
 
 ### FM-A3: Key Change on Merge
 

@@ -17,6 +17,8 @@ ST.Vehicles = (function() {
   const DIR_OPPOSITE = { N:'S', S:'N', E:'W', W:'E' };
   const DIR_ANGLE    = { E:0, S:Math.PI/2, W:Math.PI, N:-Math.PI/2 };
   const _vehicles = [];
+  let _speedMult = 1.0;   // FM-A2: bass drop doubles speed temporarily
+  let _chordMode = false;  // FM-A1: add a fifth voice on every trigger
 
   function _chooseDir(x, y, currentDir) {
     const tile = ST.Grid.getTile(x, y);
@@ -62,6 +64,16 @@ ST.Vehicles = (function() {
           filterType: fp.filterType, filterCutoff: fp.filterCutoff,
           startTime: quantizedStart
         });
+        // FM-A1: chord mode — add a fifth above at -6dB
+        if (_chordMode) {
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch * 1.5,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult * 0.5,
+            filterType: fp.filterType, filterCutoff: fp.filterCutoff,
+            startTime: quantizedStart
+          });
+        }
         // CLR-M3: higher level buildings add harmonic overtone layers
         if (level >= 3) {
           ST.Audio.trigger({
@@ -174,7 +186,7 @@ ST.Vehicles = (function() {
 
     // dt: delta time in seconds. Flash decay is handled by ST.Game._loop.
     update: function(dt) {
-      const speed = (ST.Audio.getBPM() / 120) * 2.0;
+      const speed = (ST.Audio.getBPM() / 120) * 2.0 * _speedMult;
 
       _vehicles.forEach(function(vehicle) {
         if (vehicle.stopped) {
@@ -232,7 +244,12 @@ ST.Vehicles = (function() {
       });
     },
 
-    getAll: function() { return _vehicles.slice(); },
-    count:  function() { return _vehicles.length; }
+    getAll:       function() { return _vehicles.slice(); },
+    count:        function() { return _vehicles.length; },
+    // FM-A2: speed multiplier for bass drop event
+    setSpeedMult: function(m) { _speedMult = m; },
+    // FM-A1: chord mode toggle
+    setChordMode: function(on) { _chordMode = on; },
+    getChordMode: function() { return _chordMode; }
   };
 })();

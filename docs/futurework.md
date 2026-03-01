@@ -56,8 +56,8 @@ The three critical deficits are:
 | 🟡 P2 | Unlock celebration (chord stab + shake) | ux | Low | ✅ Done (JD-U3) |
 | 🟡 P2 | Onboarding 5-step musical flow | ux | Medium | ✅ Done (OB-U1/U2) |
 | 🟡 P2 | Tooltip system for all UI elements | ux | Medium | ✅ Done |
-| 🟢 P3 | Chord progression engine | audio | High | ⬜ Pending |
-| 🟢 P3 | "Bass Drop" musical milestone event | mechanics | High | ⬜ Pending |
+| 🟢 P3 | Chord Mode toggle (fifth on every note) | audio | Medium | ✅ Done (FM-A1) |
+| 🟢 P3 | "Bass Drop" musical milestone event | mechanics | High | ✅ Done (FM-A2) |
 | 🟢 P3 | Per-building filter envelope modulation | audio | High | ⬜ Pending |
 
 ---
@@ -102,3 +102,12 @@ Changes applied:
 - `ui/onboarding.js`: 5-step musical flow with `onTrigger()` method + 90s nudge timer (OB-U1/U2)
 - `index.html`: `<div id="st-tooltip">` tooltip container
 - `styles/main.css`: `#st-tooltip` styles; `.st-tier-flash` gold keyframe animation
+
+**Wave 4 (2026-03-01): P3 — Chord Mode + Bass Drop**
+
+Changes applied:
+- `vehicles.js`: `_chordMode` flag adds a perfect fifth at -6dB on every trigger (FM-A1); `_speedMult` multiplier for tempo events (FM-A2); exposed `setChordMode()`, `getChordMode()`, `setSpeedMult()`
+- `game.js`: `_bassDrop()` fires once at Synth City tier — ducks master gain, plays 40→80Hz sub-bass sweep over 2s, doubles vehicle speed for 4s, heavy screen shake (FM-A2); `_celebrateTierUp()` routes Synth City to bass drop; chord button unlocked in DOM at Urban Pulse+
+- `ui.js`: chord button click handler — toggles chord mode, shows toast, updates `st-active` class
+- `index.html`: `<button id="btn-chord">` in transport bar (locked by default)
+- `styles/main.css`: `#btn-chord` + `#btn-chord.st-active` styles

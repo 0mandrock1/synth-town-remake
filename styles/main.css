@@ -279,6 +279,20 @@ main {
 }
 #btn-export-midi:hover { background: rgba(255,255,255,0.06); color: #e0e0e0; }
 
+/* === CHORD MODE BUTTON (FM-A1) === */
+#btn-chord {
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+#btn-chord:not(.st-locked):hover { background: rgba(100,181,246,0.1); color: #64b5f6; }
+#btn-chord.st-active { background: rgba(100,181,246,0.2); border-color: #64b5f6; color: #64b5f6; }
+
 /* === ONBOARDING === */
 #onboard-hint {
   background: rgba(100,181,246,0.1);

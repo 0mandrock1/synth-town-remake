@@ -16,9 +16,65 @@ ST.Game = (function() {
   let _beatPhase  = 0;   // QW-A1: 0.0..1.0 within current beat
   let _lastTier   = null; // CLR-M4: track tier for auto-effect progression
   let _beatDot    = null; // QW-U4: beat pulse DOM element
+  let _bassDropFired = false; // FM-A2: fires only once on reaching Synth City
+
+  // FM-A2: Bass Drop — fires once when player reaches Synth City tier (1000 pts)
+  function _bassDrop() {
+    if (_bassDropFired) return;
+    _bassDropFired = true;
+
+    const ctx = ST.Audio.getContext();
+    if (!ctx || !ST.Audio.isReady()) return;
+
+    // Pause vehicles briefly for dramatic effect
+    ST.Vehicles.setSpeedMult(0);
+
+    // Duck master gain to ~15% over 0.5s
+    const master = ST.Audio.getMasterGain();
+    master.gain.cancelScheduledValues(ctx.currentTime);
+    master.gain.setTargetAtTime(0.15, ctx.currentTime, 0.2);
+
+    // Sub-bass sweep 40 → 80 Hz (temporary one-off osc, not from pool)
+    const sweepOsc  = ctx.createOscillator();
+    const sweepGain = ctx.createGain();
+    sweepOsc.type = 'sine';
+    sweepOsc.frequency.setValueAtTime(40, ctx.currentTime + 0.5);
+    sweepOsc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 2.5);
+    sweepGain.gain.setValueAtTime(0, ctx.currentTime);
+    sweepGain.gain.linearRampToValueAtTime(0.7, ctx.currentTime + 0.6);
+    sweepGain.gain.setTargetAtTime(0, ctx.currentTime + 2.3, 0.25);
+    sweepOsc.connect(sweepGain);
+    sweepGain.connect(master);
+    sweepOsc.start(ctx.currentTime + 0.5);
+    sweepOsc.stop(ctx.currentTime + 3.2);
+
+    // Return master gain to full after 2s
+    master.gain.setTargetAtTime(0.8, ctx.currentTime + 2.0, 0.25);
+
+    // Resume vehicles at double speed for 4s, then normal
+    setTimeout(function() {
+      ST.Vehicles.setSpeedMult(2.0);
+      setTimeout(function() { ST.Vehicles.setSpeedMult(1.0); }, 4000);
+    }, 500);
+
+    // Heavy shake
+    if (ST.Renderer.markShake) ST.Renderer.markShake(5.0);
+
+    // Toast + score flash
+    if (ST._UI) ST._UI.showToast('\uD83D\uDD0A Synth City \u2014 Bass Drop!', 5500);
+    const scoreEl = document.getElementById('score-display');
+    if (scoreEl) {
+      scoreEl.classList.add('st-tier-flash');
+      setTimeout(function() { scoreEl.classList.remove('st-tier-flash'); }, 1400);
+    }
+  }
 
   // JD-U4: ascending arpeggio + golden flash on score tier change
   function _celebrateTierUp(name) {
+    if (name === 'Synth City') {
+      _bassDrop();
+      return;
+    }
     if (ST.Audio.isReady()) {
       [261.63, 329.63, 392.00].forEach(function(hz, i) {
         setTimeout(function() {
@@ -99,6 +155,12 @@ ST.Game = (function() {
             };
             const p = tierPresets[threshold.name];
             if (p) ST.Effects.setPresetAuto(p);
+          }
+          // FM-A1: unlock chord mode button at Urban Pulse+
+          const chordTiers = ['Urban Pulse', 'Synth City'];
+          const chordBtn = document.getElementById('btn-chord');
+          if (chordBtn && chordTiers.indexOf(threshold.name) !== -1) {
+            chordBtn.classList.remove('st-locked');
           }
         }
       }
