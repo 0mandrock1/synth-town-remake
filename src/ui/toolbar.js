@@ -13,7 +13,14 @@
 ST._UI = ST._UI || {};
 
 ST._UI.createToolbar = function(callbacks) {
-  const { TOOL_DEFS, BUILDING_DEFS, VEHICLE_DEFS, SIGN_DEFS, PRESET_LABELS } = ST._UI.DEFS;
+  const { TOOL_DEFS, BUILDING_DEFS, VEHICLE_DEFS, SIGN_DEFS, PRESET_LABELS, PRESET_TOOLTIPS } = ST._UI.DEFS;
+
+  function _attachTip(btn, text) {
+    if (!text) return;
+    btn.addEventListener('mouseenter', function(e) { if (ST._UI.showTooltip) ST._UI.showTooltip(e, text); });
+    btn.addEventListener('mouseleave', function()  { if (ST._UI.hideTooltip) ST._UI.hideTooltip(); });
+    btn.addEventListener('mousemove',  function(e) { if (ST._UI.moveTooltip) ST._UI.moveTooltip(e); });
+  }
 
   function _makeSection(toolbar, label) {
     const el = document.createElement('div');
@@ -38,6 +45,7 @@ ST._UI.createToolbar = function(callbacks) {
     }
     btn.appendChild(document.createTextNode(def.label));
     btn.addEventListener('click', function() { callbacks.onSetTool(def.tool); });
+    _attachTip(btn, def.tooltip);
     toolbar.appendChild(btn);
   }
 
@@ -83,6 +91,7 @@ ST._UI.createToolbar = function(callbacks) {
         ST.Effects.setPreset(name);
         callbacks.onPresetChange();
       });
+      _attachTip(btn, PRESET_TOOLTIPS && PRESET_TOOLTIPS[name]);
       toolbar.appendChild(btn);
     });
 

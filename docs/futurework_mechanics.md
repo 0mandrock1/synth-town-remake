@@ -69,9 +69,9 @@ A player can reach "Synth City" tier by placing 50 identical buildings at random
 
 ---
 
-## 2. Quick Wins (P0 — hours)
+## 2. Quick Wins (P0 — hours) — ✅ IMPLEMENTED 2026-03-01
 
-### QW-M1: Merge-to-Upgrade Audio Resolution
+### QW-M1: Merge-to-Upgrade Audio Resolution ✅
 
 **Problem:** Upgrading a building's level via the properties panel is silent and invisible from the grid.
 
@@ -95,13 +95,13 @@ b.flash = 1.5; // extra-bright flash on level up
 
 **Result:** The merge/upgrade moment becomes the most satisfying interaction in the game.
 
-### QW-M2: Score Display Reactivity
+### QW-M2: Score Display Reactivity ✅
 
 **Problem:** Score is updated every 1.0 second regardless of what happened. It feels stale.
 
 **Solution:** Update the score display immediately when a building/road/vehicle is placed. Keep the 1.0s polling for unlock checks, but decouple it from the visual counter. Add a CSS animation (`scale: 1.05 → 1.0`) on score change.
 
-### QW-M3: Vehicle Spawn Proximity Trigger
+### QW-M3: Vehicle Spawn Proximity Trigger ✅
 
 **Problem:** Spawning a vehicle does not produce sound until the vehicle happens to pass a building (which may be several tiles away and take seconds).
 
@@ -109,9 +109,9 @@ b.flash = 1.5; // extra-bright flash on level up
 
 ---
 
-## 3. Core Loop Refinements (P1 — days)
+## 3. Core Loop Refinements (P1 — days) — Partial, 2026-03-01
 
-### CLR-M1: Musical Score Component
+### CLR-M1: Musical Score Component ✅
 
 **Problem:** Score formula does not reward musical quality — only quantity.
 
@@ -143,7 +143,7 @@ This is computed only during the 1.0s score poll (not every frame). Players disc
 - The global score adds `vehicleRouteScore × 2` for all active vehicles
 - This rewards compact, dense road networks that give vehicles many building encounters
 
-### CLR-M3: Building Level Ties to Musical Range
+### CLR-M3: Building Level Ties to Musical Range ✅
 
 **Problem:** `level` property (1–8) affects building height visually but has no audio meaning.
 
@@ -158,7 +158,7 @@ level 7–8: chord stab — root + fifth + octave (a power chord)
 
 This is a pure audio enhancement with no formula changes. As players upgrade buildings, the soundscape naturally evolves from melody to harmony to chords. **Level becomes the game's "arrangement complexity" axis.**
 
-### CLR-M4: Score Tier Audio Evolution
+### CLR-M4: Score Tier Audio Evolution ✅
 
 **Problem:** Score tier names promise sonic evolution ("Street Groove", "Urban Pulse") that never arrives.
 
@@ -189,11 +189,13 @@ Note: This must be optional or overridable by the manual preset selector (manual
 
 **Implementation:** Track `_lastBpmChange` timestamp in `ST.Audio.setBPM()`. If changed more than once in 3 seconds, set a `_bpmStress` flag (0.0–1.0) that reduces vehicle speed multiplier.
 
-### PE-M2: Congestion Penalty
+### PE-M2: Congestion Penalty ✅
 
 **Problem:** Vehicles can stack infinitely on short road loops, drowning out the music with repeated triggers.
 
 **Design:** If more than 2 vehicles occupy tiles within 3 cells of each other, a "congestion" state reduces master gain by 20% and shows a visual indicator. Incentivizes spreading vehicles across the road network.
+
+**Implemented:** `_checkCongestion()` in `game.js` runs every 1s. If any vehicle has >1 neighbour within 3 tiles: ducks master gain to 0.55 (`setTargetAtTime`), shows "⚡ Traffic Jam" in status display. Restores 0.8 when clear.
 
 ### PE-M3: "Compose Mode" Toggle (Stage 10 Candidate)
 
@@ -208,26 +210,28 @@ This is the clearest implementation of the "sequencer" core metaphor — the pla
 
 ## 5. Musical Milestones Roadmap (P3)
 
-### MM-M1: "First Groove" Achievement (Score = 50)
+### MM-M1: "First Groove" Achievement (Score = 50) ✅
 
 - Triggers when the player first reaches "First Beat" tier
 - Plays a 4-beat musical phrase using the player's own buildings (a preview of what their city sounds like)
-- Toast: "Your city found its first groove!"
-- Unlocks: Bicycle + Effects panel
+- Toast: "🎵 Your city found its first groove!"
 
-### MM-M2: "Harmonic District" Achievement
+**Implemented:** `_firstGroove()` in `game.js` — sorts buildings by pitch ascending, triggers up to 4 notes 380ms apart using each building's own waveform + `b.flash = 1.0`. Replaces the generic arpeggio for "First Beat" tier.
+
+### MM-M2: "Harmonic District" Achievement ✅ (visual only)
 
 - Triggers when 3+ buildings within a 3×3 tile area are harmonically related (fifth or octave ratio)
-- The district glows with a golden outline
-- Score bonus: +50 permanent "District Bonus" for as long as those buildings exist
-- Visual: The buildings in the district pulse in sync on beat
+- The district glows with a golden dashed outline
 
-### MM-M3: "DJ Booth" Achievement (Score = 600)
+**Implemented (visual):** `_detectHarmonicDistricts()` in `renderer.js` scans every 3×3 sub-grid every 60 frames; if ≥2 harmonic pairs (octave or fifth ratio) found, stores district bounds. `_drawHarmonicDistricts()` draws gold dashed outlines with blue glow. Score bonus and beat-pulse sync not yet implemented.
 
-- Unlocks a special "remix" toolbar button
-- Clicking it randomizes all vehicle directions simultaneously (creates a musical "fill" or "break")
-- Then locks vehicles to their new routes for 8 beats before releasing them
-- This is the "drop" interaction — a mechanical way to create musical variation
+### MM-M3: "DJ Booth" Achievement (Score = 300) ✅
+
+- Unlocks a special "remix" transport button at City Rhythm tier (300 pts)
+- Clicking it reverses all vehicle directions simultaneously (creates a musical "fill" or "break")
+- A rapid sawtooth arpeggio plays + shake on click
+
+**Implemented:** `ST.Vehicles.remix()` reverses each vehicle's direction and resets progress. `☁ btn-remix` in transport bar, locked until City Rhythm. Click plays a quick sawtooth arpeggio (G3→B3→D4→G4, 80ms apart), shake 2.5, toast "🎚 Remix!".
 
 ### MM-M4: "The City Plays Itself" — Synth City Finale
 

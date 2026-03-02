@@ -10,6 +10,8 @@
 </head>
 <body>
 
+  <div id="st-tooltip" role="tooltip"></div>
+
   <div id="audio-overlay">
     <h2>Synth Town</h2>
     <p>A city that plays music</p>
@@ -23,12 +25,16 @@
     <footer id="transport">
       <button id="btn-play">&#9654;</button>
       <span class="st-transport-label">BPM</span>
+      <span id="beat-dot"></span>
       <input id="slider-bpm" type="range" min="60" max="180" value="120">
       <span id="bpm-display">120</span>
       <span class="st-transport-label">Vol</span>
       <input id="slider-vol" type="range" min="0" max="100" value="80">
       <span id="status-display"></span>
       <span id="score-display"></span>
+      <button id="btn-remix" class="st-locked" title="DJ Booth — unlocks at City Rhythm">&#9732;</button>
+      <button id="btn-chord" class="st-locked" title="Chord Mode — unlocks at Urban Pulse">&#9834;+</button>
+      <button id="btn-grid" title="Beat Grid overlay">&#9671;</button>
       <button id="btn-export-midi" title="Export MIDI file">MIDI</button>
       <span id="fps-display"></span>
     </footer>

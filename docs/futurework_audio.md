@@ -53,9 +53,9 @@ vehicle.progress += dt * speed;
 
 ---
 
-## 2. Quick Wins (P0 — 1–2 hours each)
+## 2. Quick Wins (P0 — 1–2 hours each) — ✅ IMPLEMENTED 2026-03-01
 
-### QW-A1: BPM-Quantized Trigger Scheduling
+### QW-A1: BPM-Quantized Trigger Scheduling ✅
 
 **Problem:** Triggers fire at arbitrary float times.
 
@@ -83,7 +83,7 @@ const delay = gridDur - phaseInGrid;
 
 **Result:** City sounds rhythmically locked. Grooves emerge.
 
-### QW-A2: Building Placement Confirmation Sound
+### QW-A2: Building Placement Confirmation Sound ✅
 
 **Problem:** Placing a building is silent (only roads play `_playCFeedback()`).
 
@@ -105,7 +105,7 @@ ST.Audio.trigger({
 
 **Result:** Immediate audio confirmation of every creative act. Each building type sounds distinct on placement.
 
-### QW-A3: Delay Time BPM Re-Sync on BPM Change
+### QW-A3: Delay Time BPM Re-Sync on BPM Change ✅
 
 **Problem:** `Effects.init()` sets `delayTime = 60 / BPM / 2` once at startup. BPM slider changes are not reflected in delay time.
 
@@ -127,9 +127,9 @@ setBPM: function(bpm) {
 
 ---
 
-## 3. Core Architecture Improvements (P1 — half-day each)
+## 3. Core Architecture Improvements (P1 — half-day each) — ✅ IMPLEMENTED 2026-03-01
 
-### CA-A1: Ambient City Drone Layer
+### CA-A1: Ambient City Drone Layer ✅
 
 **Problem:** The city is silent between vehicle passes. This breaks immersion — a real synth city would hum.
 
@@ -152,7 +152,7 @@ The drone gain is `buildingCount / MAX_BUILDINGS * 0.08` (max 8% of master)
 
 **Result:** The city "breathes". Players feel the world is alive even when vehicles are sparse.
 
-### CA-A2: Per-Type Filter Envelope Modulation
+### CA-A2: Per-Type Filter Envelope Modulation ✅
 
 **Problem:** Each building type sounds the same volume/brightness regardless of the vehicle that triggers it. The bus (heaviest vehicle) should make buildings sound "bigger".
 
@@ -170,7 +170,7 @@ This is already scaffolded: `ST.Audio.trigger()` accepts `filterType` and `filte
 
 **Result:** Bus sounds like a wall of bass; bicycle sounds like a bright ping. Vehicles become timbral instruments, not just speed modifiers.
 
-### CA-A3: Scale-Aware Pitch Assignment on Placement
+### CA-A3: Scale-Aware Pitch Assignment on Placement ✅
 
 **Problem:** `_randomPitch()` picks randomly from PENTATONIC_HZ. Adjacent buildings create no harmonic relationship.
 
@@ -194,7 +194,7 @@ This is purely deterministic — no chord theory needed, just ratio math on Hz v
 
 ## 4. Scalability Refactors (P2 — 1 day)
 
-### SR-A1: Async Impulse Response Generation
+### SR-A1: Async Impulse Response Generation ✅
 
 **Problem:** `_createImpulse(ctx, 2.0, 3)` in `effects.js` allocates `2 × sampleRate × 2` floats synchronously (≈176,400 floats at 44,100 Hz). On slow devices this blocks the main thread during `Effects.init()`.
 
@@ -212,7 +212,7 @@ function _createImpulseAsync(ctx, dur, decay, callback) {
 
 Until the buffer is ready, reverb operates dry. This prevents the startup stutter.
 
-### SR-A2: Score Counter Cache
+### SR-A2: Score Counter Cache ✅
 
 **Problem:** `ST.Score.calculate()` is called every 1.0 second by `ST.Game._loop` AND on every `Unlocks.check()` call. It iterates all buildings + full tile grid each call.
 
@@ -223,7 +223,7 @@ ST.Grid.forEachTile(function(tile) { if (tile.sign) signCount++; });
 
 **Solution:** Cache sign count in `ST.Signs` as an incrementing/decrementing counter (similar to how `ST.Buildings.count()` and `ST.Roads.count()` already work). Expose `ST.Signs.count()`. Then `Score.calculate()` becomes O(1).
 
-### SR-A3: Voice Node Pre-Allocation (Object Pool)
+### SR-A3: Voice Node Pre-Allocation (Object Pool) ✅
 
 **Problem:** `ST.Audio.trigger()` calls `_ctx.createOscillator()` and `_ctx.createGain()` on every trigger event. Web Audio nodes are not cheap to create — GC pressure increases with rapid vehicle-building interactions.
 
@@ -231,35 +231,41 @@ ST.Grid.forEachTile(function(tile) { if (tile.sign) signCount++; });
 
 Note: Oscillator nodes cannot be restarted after `.stop()`, so the pool must use a "borrow/recycle" pattern where `stop()` is replaced by gain envelope fade-out.
 
+**Implemented:** Each pool slot is `{ osc, filter, env, dSend, rSend, busyUntil, sendsConnected }`. All oscillators start on `init()` and run forever at `env.gain = 0` when idle. On trigger: `cancelScheduledValues` → set params → schedule envelope. Filter defaults to `allpass` (bypass). Send gains wired lazily on first use.
+
 ---
 
 ## 5. Feature Roadmap — Musical Milestones (P3)
 
-### FM-A1: Chord Mode (Score ≥ 400)
+### FM-A1: Chord Mode (Score ≥ 400) ✅
 
 When the player reaches "Urban Pulse" tier, unlock Chord Mode toggle in transport bar. In Chord Mode:
 - When a vehicle triggers a building, also trigger its **fifth** (pitch × 1.5) at -6dB
 - The city shifts from monophonic to harmonic
 
-### FM-A2: Bass Drop Event
+**Implemented:** `♩+` button in transport bar, locked until Urban Pulse; toggles `_chordMode` in Vehicles; adds fifth voice at velocity × 0.5 on each trigger.
+
+### FM-A2: Bass Drop Event ✅
 
 **Trigger:** Player reaches "Synth City" tier (1000 pts) for the first time.
 
 **Event sequence:**
-1. All vehicles stop (0.5s)
-2. Master gain ducks to 20% over 1.5s (`setTargetAtTime`)
+1. All vehicles stop (0.5s) via `setSpeedMult(0)`
+2. Master gain ducks to 15% over 0.5s
 3. A sub-bass oscillator sweeps from 40Hz → 80Hz over 2s
-4. Master gain returns to 100% over 0.5s
+4. Master gain returns to 80% over 0.5s after 2s
 5. All vehicles resume at double speed for 4 seconds ("drop" feel)
-6. Toast: "🔊 Synth City — Bass Drop!"
+6. Toast: "🔊 Synth City — Bass Drop!" + heavy screen shake (5.0)
 
-### FM-A3: Key Change on Merge
+**Implemented:** `_bassDrop()` in game.js, fires once (`_bassDropFired` guard). Temporary sweep osc created directly (not from pool) for one-off use.
+
+### FM-A3: Key Change on Merge ✅
 
 **Trigger:** Player upgrades a building to level 5 (set via property panel → level slider).
 
-**Event:** Transpose all building pitches by a perfect fourth (+5 semitones) using a `setValueAtTime` on each building's pitch. This is a harmonic "resolution" moment — the city modulates to a new key.
+**Event:** Transpose all building pitches by a perfect fourth (+5 semitones). City modulates to a new key.
 
-Visual: All buildings flash white simultaneously.
+**Implemented:** `ST.Buildings.transposePitches(semitones)` multiplies all pitches by `2^(5/12)` (≈4/3), sets `b.flash = 1.5` on all buildings for simultaneous white flash. Level-up handler in `ui.js` triggers this + screen shake 3.0 + toast "🎵 Key Change" when any building first hits level 5.
 
 ### FM-A4: Generative Melody Mode (Stage 10 Candidate)
 

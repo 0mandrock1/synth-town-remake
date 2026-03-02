@@ -13,6 +13,78 @@ ST.UI = (function() {
   let _selectedBuilding = null;
   let _hoverTile        = null;
 
+  // QW-U3: hover preview hum
+  let _hoverOsc  = null;
+  let _hoverGain = null;
+  let _hoverPitch = 0;
+
+  function _startHoverHum(waveform, pitch) {
+    if (!ST.Audio.isReady()) return;
+    if (_hoverOsc && _hoverPitch === pitch) return; // already humming same note
+    _stopHoverHum();
+    const ctx = ST.Audio.getContext();
+    _hoverPitch = pitch;
+    _hoverOsc  = ctx.createOscillator();
+    _hoverGain = ctx.createGain();
+    _hoverOsc.type = waveform;
+    _hoverOsc.frequency.value = pitch;
+    _hoverGain.gain.setValueAtTime(0.001, ctx.currentTime);
+    _hoverGain.gain.linearRampToValueAtTime(0.025, ctx.currentTime + 0.05);
+    _hoverOsc.connect(_hoverGain);
+    _hoverGain.connect(ST.Audio.getMasterGain());
+    _hoverOsc.start();
+  }
+
+  function _stopHoverHum() {
+    if (_hoverGain && _hoverOsc) {
+      const ctx = ST.Audio.getContext();
+      if (ctx) {
+        _hoverGain.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
+        try { _hoverOsc.stop(ctx.currentTime + 0.1); } catch(e) { /* already stopped */ }
+      }
+    }
+    _hoverOsc  = null;
+    _hoverGain = null;
+    _hoverPitch = 0;
+  }
+
+  // --- tooltip system (exposed on ST._UI for toolbar/defs to use) ---
+  function _showTooltip(e, text) {
+    const tip = document.getElementById('st-tooltip');
+    if (!tip) return;
+    const parts = text.split('\n');
+    tip.innerHTML = '<strong>' + parts[0] + '</strong>' +
+      (parts.length > 1 ? '<br>' + parts.slice(1).join('<br>') : '');
+    tip.style.display = 'block';
+    _moveTooltip(e);
+  }
+
+  function _moveTooltip(e) {
+    const tip = document.getElementById('st-tooltip');
+    if (!tip || tip.style.display === 'none') return;
+    const x = Math.min(e.clientX + 14, window.innerWidth - 226);
+    tip.style.left = x + 'px';
+    tip.style.top  = Math.max(4, e.clientY - tip.offsetHeight - 8) + 'px';
+  }
+
+  function _hideTooltip() {
+    const tip = document.getElementById('st-tooltip');
+    if (tip) tip.style.display = 'none';
+  }
+
+  function _addTooltip(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('mouseenter', function(e) { _showTooltip(e, text); });
+    el.addEventListener('mouseleave', _hideTooltip);
+    el.addEventListener('mousemove',  _moveTooltip);
+  }
+
+  // Make tooltip helpers available to toolbar and other sub-modules
+  ST._UI.showTooltip = _showTooltip;
+  ST._UI.moveTooltip = _moveTooltip;
+  ST._UI.hideTooltip = _hideTooltip;
+
   const _onboarding = ST._UI.createOnboarding();
 
   const _toolbar = ST._UI.createToolbar({
@@ -29,6 +101,27 @@ ST.UI = (function() {
     }
   }
 
+  // QW-M2: immediate score display refresh
+  function _refreshScore() {
+    const scoreEl = document.getElementById('score-display');
+    if (scoreEl) {
+      scoreEl.textContent = ST.Score.calculate() + ' \u2014 ' + ST.Score.getThreshold().name;
+    }
+  }
+
+  // QW-U2: confirmation sounds for removal
+  function _playRemoveSound(isBuilding) {
+    if (!ST.Audio.isReady()) return;
+    if (isBuilding) {
+      ST.Audio.trigger({ waveform: 'sine', pitch: 440, decay: 0.2, velocity: 0.15, sendDelay: 0, sendReverb: 0 });
+      setTimeout(function() {
+        ST.Audio.trigger({ waveform: 'sine', pitch: 220, decay: 0.15, velocity: 0.08, sendDelay: 0, sendReverb: 0 });
+      }, 80);
+    } else {
+      ST.Audio.trigger({ waveform: 'sawtooth', pitch: 80, decay: 0.08, velocity: 0.1, sendDelay: 0, sendReverb: 0 });
+    }
+  }
+
   // --- remove tool: handles sign / road / building with undo ---
   function _handleRemoveTool(gx, gy, tile) {
     if (!tile) return;
@@ -42,6 +135,7 @@ ST.UI = (function() {
     } else if (tile.type === 'road') {
       const savedSign = tile.sign ? { type: tile.sign.type, params: Object.assign({}, tile.sign.params) } : null;
       ST.Roads.remove(gx, gy);
+      _playRemoveSound(false);
       ST.Vehicles.getAll().forEach(function(v) {
         if ((v.x === gx && v.y === gy) || (v.nextX === gx && v.nextY === gy)) ST.Vehicles.remove(v);
       });
@@ -61,6 +155,7 @@ ST.UI = (function() {
       const b = tile.building;
       const snap = { type: b.type, x: gx, y: gy, pitch: b.pitch, level: b.level };
       if (_selectedBuilding && _selectedBuilding.x === gx && _selectedBuilding.y === gy) ST.UI.hideProperties();
+      _playRemoveSound(true);
       ST.Buildings.remove(gx, gy);
       ST.History.push({
         undo: function() {
@@ -89,6 +184,7 @@ ST.UI = (function() {
       const ok = ST.Roads.place(gx, gy);
       if (ok) {
         _playCFeedback();
+        _refreshScore();
         ST.History.push({ undo: function() { ST.Roads.remove(gx, gy); }, redo: function() { ST.Roads.place(gx, gy); } });
         if (_onboarding.getStep() === 1) _onboarding.advance(2);
       }
@@ -105,6 +201,7 @@ ST.UI = (function() {
       if (tile && tile.type === 'road') {
         let v = ST.Vehicles.spawn(_tool, gx, gy);
         if (v) {
+          _refreshScore();
           const vType = _tool;
           ST.History.push({ undo: function() { ST.Vehicles.remove(v); }, redo: function() { v = ST.Vehicles.spawn(vType, gx, gy); } });
         }
@@ -123,6 +220,7 @@ ST.UI = (function() {
     } else if (ST.Buildings.TYPES[_tool]) {
       const b = ST.Buildings.create(_tool, gx, gy);
       if (b) {
+        _refreshScore();
         // Preview the building's own sound immediately
         if (ST.Audio.isReady()) {
           ST.Audio.trigger({ waveform: b.waveform, pitch: b.pitch, decay: 0.4, velocity: 0.7, sendDelay: 0, sendReverb: 0 });
@@ -160,12 +258,25 @@ ST.UI = (function() {
         y: Math.floor((e.clientY - rect.top)  / rect.height * ST.Config.GRID_H)
       };
       if (_mouseDown && (_tool === 'road' || _tool === 'remove')) _onCanvasAction(e);
+      // QW-U3: hover hum — play a quiet note preview for building tools
+      const def = ST.Buildings.TYPES[_tool];
+      if (def && ST.Grid.isInBounds(_hoverTile.x, _hoverTile.y)) {
+        const tile = ST.Grid.getTile(_hoverTile.x, _hoverTile.y);
+        if (tile && tile.type === 'empty') {
+          _startHoverHum(def.waveform, def.pitchDefault);
+        } else {
+          _stopHoverHum();
+        }
+      } else {
+        _stopHoverHum();
+      }
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
     });
     canvas.addEventListener('mouseup',    function() { _mouseDown = false; });
     canvas.addEventListener('mouseleave', function() {
       _mouseDown = false;
       _hoverTile = null;
+      _stopHoverHum();
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
     });
   }
@@ -206,6 +317,47 @@ ST.UI = (function() {
     }
     const midiBtn = document.getElementById('btn-export-midi');
     if (midiBtn) midiBtn.addEventListener('click', function() { ST.MIDI.export(); });
+
+    // MM-M3: DJ Booth remix button — unlocks at City Rhythm via game.js
+    const remixBtn = document.getElementById('btn-remix');
+    if (remixBtn) {
+      remixBtn.addEventListener('click', function() {
+        if (remixBtn.classList.contains('st-locked')) return;
+        ST.Vehicles.remix();
+        if (ST.Renderer.markShake) ST.Renderer.markShake(2.5);
+        if (ST.Audio.isReady()) {
+          [196.00, 246.94, 293.66, 392.00].forEach(function(hz, i) {
+            setTimeout(function() {
+              ST.Audio.trigger({ waveform: 'sawtooth', pitch: hz,
+                attack: 0.01, decay: 0.2, velocity: 0.4, sendReverb: 0.2 });
+            }, i * 80);
+          });
+        }
+        ST._UI.showToast('\uD83C\uDECB Remix!', 2000);
+      });
+    }
+
+    // AC-U1: beat grid playhead toggle
+    const gridBtn = document.getElementById('btn-grid');
+    if (gridBtn) {
+      gridBtn.addEventListener('click', function() {
+        const on = !ST.Renderer.isGridOverlay();
+        ST.Renderer.setGridOverlay(on);
+        gridBtn.classList.toggle('st-active', on);
+      });
+    }
+
+    // FM-A1: chord mode toggle — unlocks visually at Urban Pulse tier via game.js
+    const chordBtn = document.getElementById('btn-chord');
+    if (chordBtn) {
+      chordBtn.addEventListener('click', function() {
+        if (chordBtn.classList.contains('st-locked')) return;
+        const on = !ST.Vehicles.getChordMode();
+        ST.Vehicles.setChordMode(on);
+        chordBtn.classList.toggle('st-active', on);
+        ST._UI.showToast(on ? '\u266a Chord Mode ON — fifth added to every note' : 'Chord Mode OFF', 2500);
+      });
+    }
   }
 
   function _setupKeyboard() {
@@ -283,10 +435,48 @@ ST.UI = (function() {
     decayEl.textContent = props.decay + 's';
     _addRow('Decay', decayEl);
 
-    const levelEl = document.createElement('div');
-    levelEl.className = 'st-props-value';
-    levelEl.textContent = 'Lv ' + props.level;
-    _addRow('Level', levelEl);
+    // QW-M1: level control with audio resolution on upgrade
+    const levelWrap = document.createElement('div');
+    levelWrap.className = 'st-props-value';
+    const levelDown = document.createElement('button');
+    levelDown.className = 'st-props-btn';
+    levelDown.textContent = '\u2212';
+    const levelNum = document.createElement('span');
+    levelNum.textContent = ' Lv ' + props.level + ' ';
+    const levelUp = document.createElement('button');
+    levelUp.className = 'st-props-btn';
+    levelUp.textContent = '+';
+    levelWrap.appendChild(levelDown);
+    levelWrap.appendChild(levelNum);
+    levelWrap.appendChild(levelUp);
+
+    levelUp.addEventListener('click', function() {
+      const newLevel = Math.min(8, (building.level || 1) + 1);
+      if (newLevel === building.level) return;
+      ST.Buildings.setProperty(building, 'level', newLevel);
+      levelNum.textContent = ' Lv ' + newLevel + ' ';
+      if (ST.Audio.isReady()) {
+        const resolveNote = building.pitch * Math.pow(2, (newLevel - 1) / 12);
+        ST.Audio.trigger({ waveform: building.waveform, pitch: resolveNote,
+          attack: 0.05, decay: 0.4, velocity: 0.5, sendReverb: 0.3 });
+      }
+      if (ST.Renderer && ST.Renderer.markShake) ST.Renderer.markShake(2.0);
+      // FM-A3: key change event when any building first reaches level 5
+      if (newLevel === 5 && ST.Buildings.transposePitches) {
+        ST.Buildings.transposePitches(5);
+        if (ST.Renderer.markShake) ST.Renderer.markShake(3.0);
+        ST._UI.showToast('\uD83C\uDFB5 Key Change \u2014 the city found a new groove!', 4000);
+      }
+      if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+    });
+    levelDown.addEventListener('click', function() {
+      const newLevel = Math.max(1, (building.level || 1) - 1);
+      if (newLevel === building.level) return;
+      ST.Buildings.setProperty(building, 'level', newLevel);
+      levelNum.textContent = ' Lv ' + newLevel + ' ';
+      if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+    });
+    _addRow('Level', levelWrap);
 
     panel.appendChild(body);
     if (app) app.style.gridTemplateColumns = '200px 1fr 220px';
@@ -300,13 +490,22 @@ ST.UI = (function() {
       _setupTransport();
       _setupKeyboard();
       _toolbar.updateToolBtns(_tool);
-      ST.Audio.onTrigger = function() {
-        if (_onboarding.getStep() === 3) _onboarding.advance(4);
-      };
+      ST.Audio.onTrigger = function() { _onboarding.onTrigger(); };
+      // Tooltips for transport controls
+      _addTooltip('btn-play',      'Play / Stop\nStarts the city simulation\nVehicles move and trigger building notes');
+      _addTooltip('slider-bpm',    'BPM — Beats per Minute\nSets playback speed and delay echo timing\n60–180 BPM');
+      _addTooltip('beat-dot',      'Beat Indicator\nPulses on every beat at the current BPM');
+      _addTooltip('slider-vol',    'Master Volume\nOverall output level');
+      _addTooltip('score-display', 'City Score\nBuildings ×10, roads ×2, vehicles ×15\nHarmonious neighbours earn bonus points (up to +200)');
+      _addTooltip('btn-export-midi', 'Export MIDI\nDownload your city composition as a .mid file');
+      _addTooltip('btn-remix', 'DJ Booth\nReverses all vehicle directions — creates a musical break\nUnlocks at City Rhythm (300 pts)');
+      _addTooltip('btn-chord', 'Chord Mode\nAdds a perfect fifth to every note\nUnlocks at Urban Pulse (600 pts)');
+      _addTooltip('btn-grid',  'Beat Grid\nShows a playhead sweeping left→right once per beat\nVisualize the city as a sequencer');
     },
 
     setTool: function(toolName) {
       _tool = toolName;
+      _stopHoverHum();
       _toolbar.updateToolBtns(_tool);
       const canvas = document.getElementById('game');
       if (canvas) canvas.style.cursor = toolName === 'select' ? 'pointer' : 'crosshair';
@@ -342,9 +541,17 @@ ST.UI = (function() {
     },
 
     onUnlock: function(ids) {
+      // JD-U3: chord stab + shake on unlock
+      if (ST.Audio.isReady()) {
+        [261.63, 329.63, 392.00].forEach(function(hz) {
+          ST.Audio.trigger({ waveform: 'triangle', pitch: hz,
+            attack: 0.02, decay: 0.5, velocity: 0.4, sendReverb: 0.25 });
+        });
+      }
+      if (ST.Renderer && ST.Renderer.markShake) ST.Renderer.markShake(1.5);
       _toolbar.build();
       _toolbar.updateToolBtns(_tool);
-      ST._UI.showToast('\uD83D\uDD13 Unlocked: ' + ids.join(', '), 3100);
+      ST._UI.showToast('\u2605 Unlocked: ' + ids.join(', '), 3500);
     }
   };
 })();

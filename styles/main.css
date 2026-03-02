@@ -205,6 +205,65 @@ main {
   100% { opacity: 0; }
 }
 
+/* === TOOLTIP === */
+#st-tooltip {
+  position: fixed;
+  background: rgba(10,10,24,0.97);
+  border: 1px solid rgba(100,181,246,0.35);
+  color: #e0e0e0;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.55;
+  pointer-events: none;
+  z-index: 400;
+  max-width: 230px;
+  display: none;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.55);
+}
+#st-tooltip strong { color: #90caf9; display: block; margin-bottom: 2px; }
+
+/* === SCORE TIER FLASH (JD-U4) === */
+@keyframes st-tier-flash {
+  0%   { color: #ffa726; text-shadow: none; }
+  20%  { color: #ffd740; text-shadow: 0 0 12px rgba(255,215,64,0.85); }
+  100% { color: #ffa726; text-shadow: none; }
+}
+.st-tier-flash { animation: st-tier-flash 1.4s ease-out forwards; }
+
+/* === BEAT DOT (QW-U4) === */
+#beat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent, #64b5f6);
+  opacity: 0.3;
+  transition: transform 0.05s, opacity 0.05s;
+  flex-shrink: 0;
+}
+#beat-dot.st-pulse {
+  transform: scale(1.9);
+  opacity: 1.0;
+}
+
+/* === LEVEL CONTROL BUTTONS (QW-M1) === */
+.st-props-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #e0e0e0;
+  cursor: pointer;
+  border-radius: 3px;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.st-props-btn:hover { background: rgba(255,255,255,0.15); }
+
 /* === SCORE === */
 #score-display { font-size: 12px; color: #ffa726; font-weight: 500; }
 #btn-export-midi {
@@ -219,6 +278,48 @@ main {
   margin-left: auto;
 }
 #btn-export-midi:hover { background: rgba(255,255,255,0.06); color: #e0e0e0; }
+
+/* === CHORD MODE BUTTON (FM-A1) === */
+#btn-chord {
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+#btn-chord:not(.st-locked):hover { background: rgba(100,181,246,0.1); color: #64b5f6; }
+#btn-chord.st-active { background: rgba(100,181,246,0.2); border-color: #64b5f6; color: #64b5f6; }
+
+/* === DJ BOOTH REMIX BUTTON (MM-M3) === */
+#btn-remix {
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+#btn-remix:not(.st-locked):hover { background: rgba(255,167,38,0.1); color: #ffa726; }
+#btn-remix:not(.st-locked):active { transform: scale(0.92); }
+
+/* === BEAT GRID BUTTON (AC-U1) === */
+#btn-grid {
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+#btn-grid:hover { background: rgba(100,181,246,0.1); color: #64b5f6; }
+#btn-grid.st-active { background: rgba(100,181,246,0.2); border-color: #64b5f6; color: #64b5f6; }
 
 /* === ONBOARDING === */
 #onboard-hint {

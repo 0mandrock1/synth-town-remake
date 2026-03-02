@@ -17,6 +17,8 @@ ST.Vehicles = (function() {
   const DIR_OPPOSITE = { N:'S', S:'N', E:'W', W:'E' };
   const DIR_ANGLE    = { E:0, S:Math.PI/2, W:Math.PI, N:-Math.PI/2 };
   const _vehicles = [];
+  let _speedMult = 1.0;   // FM-A2: bass drop doubles speed temporarily
+  let _chordMode = false;  // FM-A1: add a fifth voice on every trigger
 
   function _chooseDir(x, y, currentDir) {
     const tile = ST.Grid.getTile(x, y);
@@ -29,17 +31,76 @@ ST.Vehicles = (function() {
     return choices[Math.floor(Math.random() * choices.length)];
   }
 
+  // CA-A2: per-vehicle timbral filter — bus=warm/fat, bicycle=bright, car=neutral
+  const VEHICLE_FILTER = {
+    car:     { filterType: 'lowpass',  filterCutoff: 3000 },
+    bicycle: { filterType: 'bandpass', filterCutoff: 2200 },
+    bus:     { filterType: 'lowpass',  filterCutoff: 800  }
+  };
+
   function _triggerNearby(vehicle) {
     const typeDef = TYPES[vehicle.type];
+    const fp = VEHICLE_FILTER[vehicle.type] || {};
+    // QW-A1: snap trigger to next 16th-note grid boundary
+    let quantizedStart;
+    if (ST.Audio.isReady() && ST.Game && ST.Game.getBeatPhase) {
+      const ctx = ST.Audio.getContext();
+      const now = ctx.currentTime;
+      const beatDur = 60 / ST.Audio.getBPM();
+      const phase = ST.Game.getBeatPhase();
+      const gridDur = beatDur / 4; // 16th notes
+      const phaseInGrid = (phase % 0.25) * beatDur;
+      const delay = gridDur - phaseInGrid;
+      quantizedStart = now + Math.min(delay, gridDur);
+    }
     ST.Grid.getNeighbors(vehicle.x, vehicle.y).forEach(function(nb) {
       if (nb.tile.type === 'building' && nb.tile.building) {
         const b = nb.tile.building;
+        const level = b.level || 1;
         ST.Audio.trigger({
           waveform: b.waveform, pitch: b.pitch,
           attack: typeDef.attack, decay: typeDef.decay,
-          velocity: typeDef.velocityMult
+          velocity: typeDef.velocityMult,
+          filterType: fp.filterType, filterCutoff: fp.filterCutoff,
+          startTime: quantizedStart
         });
+        // FM-A1: chord mode — add a fifth above at -6dB
+        if (_chordMode) {
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch * 1.5,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult * 0.5,
+            filterType: fp.filterType, filterCutoff: fp.filterCutoff,
+            startTime: quantizedStart
+          });
+        }
+        // CLR-M3: higher level buildings add harmonic overtone layers
+        if (level >= 3) {
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch * 2,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult * 0.25,
+            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+          });
+        }
+        if (level >= 5) {
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch * 1.5,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult * 0.30,
+            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+          });
+        }
+        if (level >= 7) {
+          ST.Audio.trigger({
+            waveform: b.waveform, pitch: b.pitch * 3,
+            attack: typeDef.attack, decay: typeDef.decay,
+            velocity: typeDef.velocityMult * 0.20,
+            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+          });
+        }
         b.flash = 1.0;
+        if (ST.Renderer && ST.Renderer.markShake) ST.Renderer.markShake(0.5);
       }
     });
   }
@@ -113,6 +174,8 @@ ST.Vehicles = (function() {
       }
 
       _vehicles.push(vehicle);
+      // QW-M3: immediate "engine start" sound — trigger adjacent buildings on spawn
+      _triggerNearby(vehicle);
       return vehicle;
     },
 
@@ -123,7 +186,7 @@ ST.Vehicles = (function() {
 
     // dt: delta time in seconds. Flash decay is handled by ST.Game._loop.
     update: function(dt) {
-      const speed = (ST.Audio.getBPM() / 120) * 2.0;
+      const speed = (ST.Audio.getBPM() / 120) * 2.0 * _speedMult;
 
       _vehicles.forEach(function(vehicle) {
         if (vehicle.stopped) {
@@ -181,7 +244,26 @@ ST.Vehicles = (function() {
       });
     },
 
-    getAll: function() { return _vehicles.slice(); },
-    count:  function() { return _vehicles.length; }
+    getAll:       function() { return _vehicles.slice(); },
+    count:        function() { return _vehicles.length; },
+    // FM-A2: speed multiplier for bass drop event
+    setSpeedMult: function(m) { _speedMult = m; },
+    // FM-A1: chord mode toggle
+    setChordMode: function(on) { _chordMode = on; },
+    getChordMode: function() { return _chordMode; },
+    // MM-M3: DJ Booth — reverse all vehicle directions for a musical "break"
+    remix: function() {
+      _vehicles.forEach(function(v) {
+        const rev  = DIR_OPPOSITE[v.dir] || v.dir;
+        const d    = DIR_DELTA[rev];
+        const nx   = v.x + d.dx;
+        const ny   = v.y + d.dy;
+        const tile = ST.Grid.getTile(nx, ny);
+        v.dir      = rev;
+        v.nextX    = (tile && tile.type === 'road') ? nx : v.x;
+        v.nextY    = (tile && tile.type === 'road') ? ny : v.y;
+        v.progress = 0;
+      });
+    }
   };
 })();
