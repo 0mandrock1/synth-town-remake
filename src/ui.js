@@ -14,6 +14,10 @@ ST.UI = (function() {
   let _hoverTile        = null;
   // AC-U3: Shift key held state for route visualization
   let _shiftHeld = false;
+  // MB-8: true while the mobile toolbar drawer CSS transition is running;
+  // canvas touch events are suppressed during this window to prevent
+  // stale getBoundingClientRect() coordinates causing tile misregistration.
+  let _drawerAnimating = false;
 
   // QW-U3: hover preview hum
   let _hoverOsc  = null;
@@ -301,14 +305,21 @@ ST.UI = (function() {
     });
 
     // MB-3: touch events — passive:false to allow preventDefault (blocks scroll)
+    // MB-8: guard all touch handlers with _drawerAnimating so touches that land
+    // while the toolbar slide-in/out transition is running are silently dropped.
+    // This prevents stale getBoundingClientRect() from misregistering tiles.
     canvas.addEventListener('touchstart', function(e) {
       e.preventDefault();
+      if (_drawerAnimating) return;
+      if (e.touches.length === 0) return;
       const t = e.touches[0];
       _handlePointerDown(t.clientX, t.clientY);
     }, { passive: false });
 
     canvas.addEventListener('touchmove', function(e) {
       e.preventDefault();
+      if (_drawerAnimating) return;
+      if (e.touches.length === 0) return;
       const t = e.touches[0];
       _handlePointerMove(t.clientX, t.clientY);
     }, { passive: false });
@@ -389,17 +400,37 @@ ST.UI = (function() {
       });
     }
     // MB-5: mobile toolbar drawer toggle
+    // MB-8: _drawerAnimating flag — while the slide-in/out transition runs
+    // (250ms) we block canvas touch events so a touch that lands mid-animation
+    // cannot use a stale getBoundingClientRect() from the transitioning layout.
     const toggleBtn = document.getElementById('btn-toolbar-toggle');
     const backdrop  = document.getElementById('toolbar-backdrop');
     const toolbarEl = document.getElementById('toolbar');
+
+    function _setDrawerAnimating(on) {
+      _drawerAnimating = on;
+    }
+
+    if (toolbarEl) {
+      toolbarEl.addEventListener('transitionend', function() {
+        _setDrawerAnimating(false);
+      });
+    }
+
     if (toggleBtn) {
       toggleBtn.addEventListener('click', function() {
-        if (toolbarEl) toolbarEl.classList.toggle('st-open');
+        if (toolbarEl) {
+          _setDrawerAnimating(true);
+          toolbarEl.classList.toggle('st-open');
+        }
       });
     }
     if (backdrop) {
       backdrop.addEventListener('click', function() {
-        if (toolbarEl) toolbarEl.classList.remove('st-open');
+        if (toolbarEl) {
+          _setDrawerAnimating(true);
+          toolbarEl.classList.remove('st-open');
+        }
       });
     }
 
@@ -642,9 +673,15 @@ ST.UI = (function() {
     showProperties: function(building) {
       _selectedBuilding = building;
       _buildPropertiesPanel(building);
-      // AC-U2: move focus into the panel so keyboard users can interact with it
-      const closeBtn = document.querySelector('#properties .st-props-close');
-      if (closeBtn) closeBtn.focus();
+      // AC-U2: move focus into the panel so keyboard users can interact with it.
+      // MB-7: skip auto-focus on touch devices — focusing a button inside the
+      // bottom-sheet panel causes iOS/Android to scroll the viewport and can
+      // trigger the virtual keyboard, making the panel unusable on mobile.
+      const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      if (!isTouchDevice) {
+        const closeBtn = document.querySelector('#properties .st-props-close');
+        if (closeBtn) closeBtn.focus();
+      }
     },
 
     hideProperties: function() {
