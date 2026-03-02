@@ -25,6 +25,8 @@ ST._UI.createToolbar = function(callbacks) {
   function _makeSection(toolbar, label) {
     const el = document.createElement('div');
     el.className = 'st-toolbar-section';
+    // AC-U3: section label is decorative grouping, not a focusable landmark
+    el.setAttribute('aria-hidden', 'true');
     el.textContent = label;
     toolbar.appendChild(el);
   }
@@ -33,19 +35,36 @@ ST._UI.createToolbar = function(callbacks) {
     const btn = document.createElement('button');
     btn.className  = 'st-tool-btn';
     btn.dataset.tool = def.tool;
+    // AC-U3: aria-pressed marks the currently active tool
+    btn.setAttribute('aria-pressed', 'false');
     if (!ST.Unlocks.isUnlocked(def.tool)) {
       btn.classList.add('st-locked');
       btn.title = 'Locked \u2014 raise your score to unlock';
+      // AC-U3: communicate locked state to screen readers
+      btn.setAttribute('aria-disabled', 'true');
     }
     if (def.dot) {
       const dot = document.createElement('span');
       dot.className = 'st-color-dot';
       dot.style.background = def.dot;
+      // AC-U3: color dot is decorative — hide from AT
+      dot.setAttribute('aria-hidden', 'true');
       btn.appendChild(dot);
     }
     btn.appendChild(document.createTextNode(def.label));
     btn.addEventListener('click', function() { callbacks.onSetTool(def.tool); });
     _attachTip(btn, def.tooltip);
+    // AC-U2: play a brief 0.5s audio preview on building-type toolbar button hover
+    if (ST.Buildings && ST.Buildings.TYPES[def.tool]) {
+      btn.addEventListener('mouseenter', function() {
+        if (!ST.Audio || !ST.Audio.isReady()) return;
+        const bdef = ST.Buildings.TYPES[def.tool];
+        ST.Audio.trigger({
+          waveform: bdef.waveform, pitch: bdef.pitchDefault,
+          decay: 0.5, velocity: 0.18, sendDelay: 0, sendReverb: 0.05
+        });
+      });
+    }
     toolbar.appendChild(btn);
   }
 
@@ -85,7 +104,10 @@ ST._UI.createToolbar = function(callbacks) {
       const btn = document.createElement('button');
       btn.className    = 'st-tool-btn';
       btn.dataset.preset = name;
-      if (name === currentPreset) btn.classList.add('st-active');
+      const isActive = (name === currentPreset);
+      if (isActive) btn.classList.add('st-active');
+      // AC-U3: aria-pressed reflects the active effects preset
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       btn.appendChild(document.createTextNode(PRESET_LABELS[name]));
       btn.addEventListener('click', function() {
         ST.Effects.setPreset(name);
@@ -114,14 +136,20 @@ ST._UI.createToolbar = function(callbacks) {
 
   function updateToolBtns(tool) {
     document.querySelectorAll('[data-tool]').forEach(function(btn) {
-      btn.classList.toggle('st-active', btn.dataset.tool === tool);
+      const isActive = btn.dataset.tool === tool;
+      btn.classList.toggle('st-active', isActive);
+      // AC-U3: keep aria-pressed in sync with active tool
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
   }
 
   function updateEffectBtns() {
     const preset = ST.Effects.getPreset();
     document.querySelectorAll('[data-preset]').forEach(function(btn) {
-      btn.classList.toggle('st-active', btn.dataset.preset === preset);
+      const isActive = btn.dataset.preset === preset;
+      btn.classList.toggle('st-active', isActive);
+      // AC-U3: keep aria-pressed in sync with active preset
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
   }
 

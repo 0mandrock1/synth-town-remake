@@ -12,31 +12,60 @@
 
   <div id="st-tooltip" role="tooltip"></div>
 
-  <div id="audio-overlay">
-    <h2>Synth Town</h2>
+  <!-- AC-U2: dialog role + aria-modal for focus-trap; AC-U3: aria-labelledby -->
+  <div id="audio-overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
+    <h2 id="overlay-title">Synth Town</h2>
     <p>A city that plays music</p>
     <button id="btn-start-audio">Start Audio</button>
   </div>
 
   <div id="app">
-    <aside id="toolbar"></aside>
-    <main><canvas id="game"></canvas></main>
-    <aside id="properties"></aside>
-    <footer id="transport">
-      <button id="btn-play">&#9654;</button>
-      <span class="st-transport-label">BPM</span>
-      <span id="beat-dot"></span>
-      <input id="slider-bpm" type="range" min="60" max="180" value="120">
-      <span id="bpm-display">120</span>
-      <span class="st-transport-label">Vol</span>
-      <input id="slider-vol" type="range" min="0" max="100" value="80">
-      <span id="status-display"></span>
-      <span id="score-display"></span>
-      <button id="btn-remix" class="st-locked" title="DJ Booth — unlocks at City Rhythm">&#9732;</button>
-      <button id="btn-chord" class="st-locked" title="Chord Mode — unlocks at Urban Pulse">&#9834;+</button>
-      <button id="btn-grid" title="Beat Grid overlay">&#9671;</button>
-      <button id="btn-export-midi" title="Export MIDI file">MIDI</button>
-      <span id="fps-display"></span>
+    <!-- AC-U3: landmark labels -->
+    <aside id="toolbar" aria-label="Tools and settings"></aside>
+    <main aria-label="City canvas">
+      <!-- AC-U3: role=application for interactive canvas; tabindex for keyboard focus -->
+      <canvas id="game" role="application"
+              aria-label="Synth Town city grid — place roads, buildings and vehicles"
+              tabindex="0"></canvas>
+    </main>
+    <aside id="properties" aria-label="Building properties"></aside>
+    <footer id="transport" aria-label="Transport controls">
+      <!-- AC-U3: aria-label for icon-only play button; aria-pressed toggled by JS -->
+      <button id="btn-play" aria-label="Play" aria-pressed="false">&#9654;</button>
+      <!-- AC-U3: decorative labels hidden from AT; inputs get aria-label -->
+      <span class="st-transport-label" aria-hidden="true">BPM</span>
+      <span id="beat-dot" aria-hidden="true"></span>
+      <input id="slider-bpm" type="range" min="60" max="180" value="120"
+             aria-label="Tempo in BPM" aria-valuemin="60" aria-valuemax="180">
+      <span id="bpm-display" aria-live="polite" aria-label="Current BPM">120</span>
+      <span class="st-transport-label" aria-hidden="true">Vol</span>
+      <input id="slider-vol" type="range" min="0" max="100" value="80"
+             aria-label="Master volume">
+      <!-- AC-U3: live regions for dynamic score/status text -->
+      <span id="status-display" aria-live="polite"></span>
+      <span id="score-display" aria-live="polite"></span>
+      <button id="btn-remix" class="st-locked"
+              title="DJ Booth — unlocks at City Rhythm"
+              aria-label="DJ Booth — reverses all vehicle directions, unlocks at City Rhythm"
+              aria-disabled="true">&#9732;</button>
+      <button id="btn-chord" class="st-locked"
+              title="Chord Mode — unlocks at Urban Pulse"
+              aria-label="Chord Mode — adds a perfect fifth to every note, unlocks at Urban Pulse"
+              aria-disabled="true" aria-pressed="false">&#9834;+</button>
+      <button id="btn-grid"
+              title="Beat Grid overlay"
+              aria-label="Beat Grid — shows playhead sweeping across city once per beat"
+              aria-pressed="false">&#9671;</button>
+      <button id="btn-export-midi"
+              title="Export MIDI file"
+              aria-label="Export composition as MIDI file">MIDI</button>
+      <!-- AC-U4: color-blind mode toggle -->
+      <button id="btn-colorblind"
+              title="Color-Blind Mode"
+              aria-label="Color-Blind Mode — adds ✓/✗ hover glyphs and ring flash indicators"
+              aria-pressed="false">&#9673;</button>
+      <!-- FPS counter is decorative instrumentation only -->
+      <span id="fps-display" aria-hidden="true"></span>
     </footer>
   </div>
 

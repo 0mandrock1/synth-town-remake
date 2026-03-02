@@ -57,11 +57,16 @@ ST.Vehicles = (function() {
       if (nb.tile.type === 'building' && nb.tile.building) {
         const b = nb.tile.building;
         const level = b.level || 1;
+        // Per-building filter takes priority over per-vehicle filter (CA-A2 fallback)
+        const bDef = ST.Buildings.TYPES[b.type] || {};
+        const fType   = bDef.filterType   || fp.filterType;
+        const fCutoff = bDef.filterCutoff || fp.filterCutoff;
+        const fQ      = bDef.filterQ;
         ST.Audio.trigger({
           waveform: b.waveform, pitch: b.pitch,
           attack: typeDef.attack, decay: typeDef.decay,
           velocity: typeDef.velocityMult,
-          filterType: fp.filterType, filterCutoff: fp.filterCutoff,
+          filterType: fType, filterCutoff: fCutoff, filterQ: fQ,
           startTime: quantizedStart
         });
         // FM-A1: chord mode — add a fifth above at -6dB
@@ -70,7 +75,7 @@ ST.Vehicles = (function() {
             waveform: b.waveform, pitch: b.pitch * 1.5,
             attack: typeDef.attack, decay: typeDef.decay,
             velocity: typeDef.velocityMult * 0.5,
-            filterType: fp.filterType, filterCutoff: fp.filterCutoff,
+            filterType: fType, filterCutoff: fCutoff, filterQ: fQ,
             startTime: quantizedStart
           });
         }
@@ -80,7 +85,7 @@ ST.Vehicles = (function() {
             waveform: b.waveform, pitch: b.pitch * 2,
             attack: typeDef.attack, decay: typeDef.decay,
             velocity: typeDef.velocityMult * 0.25,
-            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+            filterType: fType, filterCutoff: fCutoff, filterQ: fQ
           });
         }
         if (level >= 5) {
@@ -88,7 +93,7 @@ ST.Vehicles = (function() {
             waveform: b.waveform, pitch: b.pitch * 1.5,
             attack: typeDef.attack, decay: typeDef.decay,
             velocity: typeDef.velocityMult * 0.30,
-            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+            filterType: fType, filterCutoff: fCutoff, filterQ: fQ
           });
         }
         if (level >= 7) {
@@ -96,7 +101,7 @@ ST.Vehicles = (function() {
             waveform: b.waveform, pitch: b.pitch * 3,
             attack: typeDef.attack, decay: typeDef.decay,
             velocity: typeDef.velocityMult * 0.20,
-            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+            filterType: fType, filterCutoff: fCutoff, filterQ: fQ
           });
         }
         b.flash = 1.0;
@@ -164,7 +169,9 @@ ST.Vehicles = (function() {
         type: type, x: x, y: y,
         dir: startDir, progress: 0,
         nextX: x + d.dx, nextY: y + d.dy,
-        stopped: false, stopTimer: 0
+        stopped: false, stopTimer: 0,
+        // AC-U3: trail stores last 12 visited tile positions for route visualization
+        trail: [{ x: x, y: y }]
       };
 
       const nextTile = ST.Grid.getTile(vehicle.nextX, vehicle.nextY);
@@ -204,6 +211,12 @@ ST.Vehicles = (function() {
           vehicle.progress -= 1.0;
           vehicle.x = vehicle.nextX;
           vehicle.y = vehicle.nextY;
+          // AC-U3: append new position to trail (max 12 entries)
+          const last = vehicle.trail[vehicle.trail.length - 1];
+          if (!last || last.x !== vehicle.x || last.y !== vehicle.y) {
+            vehicle.trail.push({ x: vehicle.x, y: vehicle.y });
+            if (vehicle.trail.length > 12) vehicle.trail.shift();
+          }
           _triggerNearby(vehicle);
           _advance(vehicle);
           if (vehicle.nextX === vehicle.x && vehicle.nextY === vehicle.y) {
