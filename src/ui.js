@@ -616,12 +616,13 @@ ST.UI = (function() {
       _addTooltip('slider-bpm',    'BPM — Beats per Minute\nSets playback speed and delay echo timing\n60–180 BPM');
       _addTooltip('beat-dot',      'Beat Indicator\nPulses on every beat at the current BPM');
       _addTooltip('slider-vol',    'Master Volume\nOverall output level');
-      _addTooltip('score-display', 'City Score\nBuildings ×10, roads ×2, vehicles ×15\nHarmonious neighbours earn bonus points (up to +200)');
+      _addTooltip('score-display', 'City Score\nBuildings ×10 · roads ×2 · vehicles ×15\nBuilding variety ×20 · signs ×10\nHarmony bonus (octaves/fifths between neighbours) up to +200');
       _addTooltip('btn-export-midi', 'Export MIDI\nDownload your city composition as a .mid file');
       _addTooltip('btn-remix', 'DJ Booth\nReverses all vehicle directions — creates a musical break\nUnlocks at City Rhythm (300 pts)');
       _addTooltip('btn-chord', 'Chord Mode\nAdds a perfect fifth to every note\nUnlocks at Urban Pulse (600 pts)');
       _addTooltip('btn-grid',  'Beat Grid\nShows a playhead sweeping left→right once per beat\nVisualize the city as a sequencer');
       _addTooltip('btn-colorblind', 'Color-Blind Mode\nAdds ✓/✗ shape glyphs on hover tiles\nAdds concentric ring flash on building triggers\nHold Shift to reveal vehicle route trails');
+      _addTooltip('status-display', 'City Status\nShows ⚡ Traffic Jam when vehicles are deadlocked\nHappens when too many vehicles share too few road tiles\nRemove a vehicle or add more roads to clear it');
     },
 
     setTool: function(toolName) {

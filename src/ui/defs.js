@@ -29,19 +29,19 @@ ST._UI.DEFS = {
   ],
   VEHICLE_DEFS: [
     { tool: 'car',     label: 'Car',     dot: '#dce0e8',
-      tooltip: 'Car\nNeutral lowpass filter (3 kHz)\nMedium speed · clear, balanced note' },
+      tooltip: 'Car\nNeutral lowpass filter (3 kHz) — full, balanced tone\nMedium speed (1×) · decay 0.2 s · instant attack' },
     { tool: 'bicycle', label: 'Bicycle', dot: '#64b5f6',
-      tooltip: 'Bicycle\nBright bandpass filter (2.2 kHz)\nSlower · crisp, focused note' },
+      tooltip: 'Bicycle\nBright bandpass filter (2.2 kHz) — crisp midrange focus\nSlower (0.8×) · decay 0.12 s · near-instant attack\nUnlocks at 50 pts' },
     { tool: 'bus',     label: 'Bus',     dot: '#ffa726',
-      tooltip: 'Bus\nWarm lowpass filter (800 Hz)\nFaster · deep, resonant note with long attack' }
+      tooltip: 'Bus\nWarm lowpass filter (800 Hz) — deep, muffled bass\nFaster (1.2×) · long decay (0.45 s) · soft attack\nUnlocks at 150 pts' }
   ],
   SIGN_DEFS: [
     { tool: 'trafficLight', label: 'Traffic Light', dot: '#ef5350',
-      tooltip: 'Traffic Light\nStops vehicles for ~2 seconds\nCreates rhythmic gaps and syncopation' },
+      tooltip: 'Traffic Light\nStops vehicles for ~2 seconds\nCreates rhythmic gaps and syncopation\nUnlocks at 100 pts' },
     { tool: 'oneWay',       label: 'One Way',       dot: '#fff',
-      tooltip: 'One Way Sign\nForces vehicles to go East (default)\nGood for building predictable loops' },
+      tooltip: 'One Way Sign\nForces vehicles to go East (default)\nGood for building predictable, looping routes\nUnlocks at 200 pts' },
     { tool: 'roundabout',   label: 'Roundabout',    dot: '#64b5f6',
-      tooltip: 'Roundabout\nVehicles always turn clockwise\nCreates circular orbital routes' }
+      tooltip: 'Roundabout\nVehicles always turn clockwise\nCreates tight circular orbital routes\nUnlocks at 300 pts' }
   ],
   PRESET_LABELS: { dry: 'Dry', room: 'Room', echo: 'Echo', space: 'Space' },
   PRESET_TOOLTIPS: {

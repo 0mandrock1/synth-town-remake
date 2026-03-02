@@ -71,7 +71,7 @@ ST._UI.createToolbar = function(callbacks) {
     toolbar.appendChild(btn);
   }
 
-  function _makeActionBtn(toolbar, label, onClick) {
+  function _makeActionBtn(toolbar, label, onClick, tooltip) {
     const btn = document.createElement('button');
     btn.className = 'st-tool-btn';
     const labelSpan = document.createElement('span');
@@ -79,6 +79,7 @@ ST._UI.createToolbar = function(callbacks) {
     labelSpan.textContent = label;
     btn.appendChild(labelSpan);
     btn.addEventListener('click', onClick);
+    _attachTip(btn, tooltip);
     toolbar.appendChild(btn);
   }
 
@@ -129,18 +130,19 @@ ST._UI.createToolbar = function(callbacks) {
     _makeSection(toolbar, 'Save / Load (Browser)');
     _makeActionBtn(toolbar, 'Save to Browser', function() {
       callbacks.onShowToast(ST.State.save(0) ? 'Saved to browser storage!' : 'Save failed.');
-    });
+    }, 'Save to Browser\nStores your entire city in this browser\'s localStorage\nOverwrites any previous save in this browser');
     _makeActionBtn(toolbar, 'Load from Browser', function() {
       callbacks.onShowToast(ST.State.load(0) ? 'Loaded!' : 'Nothing saved yet.');
-    });
+    }, 'Load from Browser\nRestores the last city you saved here\nReplaces your current work — save first if needed');
     _makeActionBtn(toolbar, 'Share URL', function() {
       ST.State.exportURL();
       if (navigator.clipboard) navigator.clipboard.writeText(location.href).catch(function() {});
       callbacks.onShowToast('URL ready \u2014 copy from address bar.');
-    });
+    }, 'Share URL\nEncodes the entire city into the page URL (base64)\nCopy the address bar link and share it with anyone');
 
     _makeSection(toolbar, 'MIDI');
-    _makeActionBtn(toolbar, 'Import MIDI', function() { ST.MIDI.import(); });
+    _makeActionBtn(toolbar, 'Import MIDI', function() { ST.MIDI.import(); },
+      'Import MIDI\nLoad a .mid file to assign pitches to your buildings\nMaps bar-1 notes (track 0) to buildings in placement order');
   }
 
   function updateToolBtns(tool) {
