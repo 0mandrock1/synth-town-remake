@@ -281,6 +281,30 @@ ST.UI = (function() {
     });
   }
 
+  // AC-U2: focus-trap for the audio-overlay modal
+  function _setupOverlayFocusTrap() {
+    const overlay  = document.getElementById('audio-overlay');
+    const startBtn = document.getElementById('btn-start-audio');
+    if (!overlay || !startBtn) return;
+
+    // Shift focus into the modal immediately so keyboard users land on the button
+    startBtn.focus();
+
+    // Trap Tab / Shift-Tab inside the overlay (only one focusable element)
+    overlay.addEventListener('keydown', function(e) {
+      if (e.key !== 'Tab') return;
+      e.preventDefault();
+      startBtn.focus();
+    });
+
+    // Escape key also activates the button (start audio)
+    overlay.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        startBtn.click();
+      }
+    });
+  }
+
   function _setupTransport() {
     const overlay    = document.getElementById('audio-overlay');
     const startBtn   = document.getElementById('btn-start-audio');
@@ -293,6 +317,9 @@ ST.UI = (function() {
       ST.Audio.init();
       ST.Effects.init();
       if (overlay) overlay.style.display = 'none';
+      // AC-U2: return focus to canvas after closing the modal
+      const canvas = document.getElementById('game');
+      if (canvas) canvas.focus();
       _onboarding.advance(1);
     });
     if (playBtn) {
@@ -344,6 +371,8 @@ ST.UI = (function() {
         const on = !ST.Renderer.isGridOverlay();
         ST.Renderer.setGridOverlay(on);
         gridBtn.classList.toggle('st-active', on);
+        // AC-U3: keep aria-pressed in sync
+        gridBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
     }
 
@@ -355,6 +384,8 @@ ST.UI = (function() {
         const on = !ST.Vehicles.getChordMode();
         ST.Vehicles.setChordMode(on);
         chordBtn.classList.toggle('st-active', on);
+        // AC-U3: keep aria-pressed in sync
+        chordBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
         ST._UI.showToast(on ? '\u266a Chord Mode ON — fifth added to every note' : 'Chord Mode OFF', 2500);
       });
     }
@@ -406,6 +437,8 @@ ST.UI = (function() {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'st-props-close';
     closeBtn.textContent = '\u00d7';
+    // AC-U3: label icon-only close button
+    closeBtn.setAttribute('aria-label', 'Close building properties');
     closeBtn.addEventListener('click', function() { ST.UI.hideProperties(); });
     header.appendChild(dot);
     header.appendChild(title);
@@ -441,11 +474,16 @@ ST.UI = (function() {
     const levelDown = document.createElement('button');
     levelDown.className = 'st-props-btn';
     levelDown.textContent = '\u2212';
+    // AC-U3: label icon-only level controls
+    levelDown.setAttribute('aria-label', 'Decrease building level');
     const levelNum = document.createElement('span');
     levelNum.textContent = ' Lv ' + props.level + ' ';
+    // AC-U3: live region so screen reader announces level changes
+    levelNum.setAttribute('aria-live', 'polite');
     const levelUp = document.createElement('button');
     levelUp.className = 'st-props-btn';
     levelUp.textContent = '+';
+    levelUp.setAttribute('aria-label', 'Increase building level');
     levelWrap.appendChild(levelDown);
     levelWrap.appendChild(levelNum);
     levelWrap.appendChild(levelUp);
@@ -489,6 +527,8 @@ ST.UI = (function() {
       _setupCanvas();
       _setupTransport();
       _setupKeyboard();
+      // AC-U2: activate focus-trap in the startup modal
+      _setupOverlayFocusTrap();
       _toolbar.updateToolBtns(_tool);
       ST.Audio.onTrigger = function() { _onboarding.onTrigger(); };
       // Tooltips for transport controls
@@ -518,6 +558,9 @@ ST.UI = (function() {
     showProperties: function(building) {
       _selectedBuilding = building;
       _buildPropertiesPanel(building);
+      // AC-U2: move focus into the panel so keyboard users can interact with it
+      const closeBtn = document.querySelector('#properties .st-props-close');
+      if (closeBtn) closeBtn.focus();
     },
 
     hideProperties: function() {
@@ -526,6 +569,9 @@ ST.UI = (function() {
       const app   = document.getElementById('app');
       if (panel) panel.innerHTML = '';
       if (app) app.style.gridTemplateColumns = '200px 1fr 0px';
+      // AC-U2: return focus to canvas so keyboard users stay oriented
+      const canvas = document.getElementById('game');
+      if (canvas) canvas.focus();
     },
 
     updateTransport: function(bpm, playing) {
@@ -537,6 +583,9 @@ ST.UI = (function() {
       if (playBtn) {
         playBtn.innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
         playBtn.classList.toggle('st-active', playing);
+        // AC-U3: keep aria-label and aria-pressed in sync with play state
+        playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+        playBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
       }
     },
 

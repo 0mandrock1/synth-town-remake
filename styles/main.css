@@ -2,6 +2,15 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { overflow: hidden; font-family: 'Inter', sans-serif; }
 
+/* === AC-U2: Keyboard focus ring (WCAG 2.4.7 / 2.4.11) === */
+:focus-visible {
+  outline: 2px solid #64b5f6;
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* === LAYOUT === */
 #app {
   display: grid;
@@ -30,7 +39,8 @@ body { overflow: hidden; font-family: 'Inter', sans-serif; }
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.3);
+  /* AC-U4: raised from 0.3 → 0.6 to meet WCAG AA 4.5:1 on #12122a */
+  color: rgba(255,255,255,0.6);
   margin: 8px 4px 4px;
 }
 .st-tool-btn {
@@ -86,7 +96,8 @@ main {
 .st-props-close {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.4);
+  /* AC-U4: raised from 0.4 → 0.6 — interactive element needs ≥3:1 (WCAG 1.4.11) */
+  color: rgba(255,255,255,0.6);
   cursor: pointer;
   font-size: 16px;
   padding: 2px 6px;
@@ -95,7 +106,8 @@ main {
 .st-props-close:hover { color: #e0e0e0; background: rgba(255,255,255,0.08); }
 .st-props-body { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
 .st-props-row { display: flex; flex-direction: column; gap: 4px; }
-.st-props-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); }
+/* AC-U4: raised from 0.4 → 0.6 to meet WCAG AA 4.5:1 on #12122a */
+.st-props-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.6); }
 .st-props-value { font-size: 12px; color: #e0e0e0; }
 .st-props-row input[type="range"] { width: 100%; accent-color: #64b5f6; cursor: pointer; }
 
@@ -126,12 +138,14 @@ main {
 }
 #btn-play:hover { background: #90caf9; }
 #btn-play.st-active { background: #ef5350; }
-.st-transport-label { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+/* AC-U4: raised from 0.4 → 0.65 (decorative labels, but still should be readable) */
+.st-transport-label { font-size: 11px; color: rgba(255,255,255,0.65); white-space: nowrap; }
 #slider-bpm { width: 120px; cursor: pointer; accent-color: #64b5f6; }
 #slider-vol { width: 72px; cursor: pointer; accent-color: #66bb6a; }
 #bpm-display { font-size: 13px; color: #64b5f6; font-weight: 600; min-width: 36px; }
-#status-display { font-size: 11px; color: rgba(255,255,255,0.3); }
-#fps-display { font-size: 11px; color: rgba(255,255,255,0.3); margin-left: auto; }
+/* AC-U4: raised from 0.3 → 0.65 for WCAG AA compliance on #0a0a12 */
+#status-display { font-size: 11px; color: rgba(255,255,255,0.65); }
+#fps-display { font-size: 11px; color: rgba(255,255,255,0.65); margin-left: auto; }
 
 /* === MODALS & OVERLAYS === */
 #audio-overlay {
@@ -146,7 +160,8 @@ main {
   gap: 16px;
 }
 #audio-overlay h2 { font-size: 24px; color: #64b5f6; }
-#audio-overlay p { font-size: 14px; color: rgba(255,255,255,0.4); }
+/* AC-U4: raised from 0.4 → 0.7 for WCAG AA 4.5:1 on overlay bg */
+#audio-overlay p { font-size: 14px; color: rgba(255,255,255,0.7); }
 #btn-start-audio {
   background: #64b5f6;
   color: #0a0a12;

@@ -31,9 +31,14 @@ ST._UI.buildPianoPicker = function(building, color) {
   const btnNext  = document.createElement('button');
   btnPrev.className  = 'st-oct-btn';
   btnPrev.textContent = '\u2039';
+  // AC-U3: label icon-only octave nav buttons for screen readers
+  btnPrev.setAttribute('aria-label', 'Previous octave');
   octLabel.className = 'st-piano-oct-label';
+  // AC-U3: live region so octave changes are announced
+  octLabel.setAttribute('aria-live', 'polite');
   btnNext.className  = 'st-oct-btn';
   btnNext.textContent = '\u203a';
+  btnNext.setAttribute('aria-label', 'Next octave');
   nav.appendChild(btnPrev);
   nav.appendChild(octLabel);
   nav.appendChild(btnNext);
@@ -41,10 +46,15 @@ ST._UI.buildPianoPicker = function(building, color) {
 
   const keysEl = document.createElement('div');
   keysEl.className = 'st-piano-keys';
+  // AC-U3: group role + label so AT announces it as a pitch selector
+  keysEl.setAttribute('role', 'group');
+  keysEl.setAttribute('aria-label', 'Select pitch');
   wrap.appendChild(keysEl);
 
   const hzEl = document.createElement('div');
   hzEl.className = 'st-props-value';
+  // AC-U3: live region so pitch value changes are announced by screen readers
+  hzEl.setAttribute('aria-live', 'polite');
 
   // --- helpers ---
   function _updateHzEl() {
@@ -62,28 +72,41 @@ ST._UI.buildPianoPicker = function(building, color) {
     _updateHzEl();
   }
 
+  // AC-U3: shared helper to make a piano key div keyboard/AT accessible
+  function _makeKey(className, midi, isActive, leftPx) {
+    const key  = document.createElement('div');
+    const ni   = ((midi % 12) + 12) % 12;
+    const oct  = Math.floor(midi / 12) - 1;
+    const name = NOTES[ni] + oct;
+    key.className  = className;
+    key.style.left = leftPx + 'px';
+    // role=button + tabindex makes div keys focusable and actionable via keyboard
+    key.setAttribute('role', 'button');
+    key.setAttribute('tabindex', '0');
+    key.setAttribute('aria-label', name + (isActive ? ' (selected)' : ''));
+    key.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    if (isActive) { key.style.background = color; if (className === 'st-black-key') key.style.opacity = '0.85'; }
+    function _act(e) { e.stopPropagation(); _pickNote(midi); }
+    key.addEventListener('click', _act);
+    // Activate on Enter or Space for keyboard users
+    key.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _act(e); }
+    });
+    return key;
+  }
+
   function _buildKeys() {
     keysEl.innerHTML = '';
     const activeMidi = hzToMidi(building.pitch);
 
     WHITE_IDX.forEach(function(ni, i) {
       const midi = (octave[0] + 1) * 12 + ni;
-      const key  = document.createElement('div');
-      key.className  = 'st-white-key';
-      key.style.left = (i * WK) + 'px';
-      if (midi === activeMidi) key.style.background = color;
-      key.addEventListener('click', function(e) { e.stopPropagation(); _pickNote(midi); });
-      keysEl.appendChild(key);
+      keysEl.appendChild(_makeKey('st-white-key', midi, midi === activeMidi, i * WK));
     });
 
     BLACK_IDX.forEach(function(ni, i) {
       const midi = (octave[0] + 1) * 12 + ni;
-      const key  = document.createElement('div');
-      key.className  = 'st-black-key';
-      key.style.left = BLACK_OFFSETS[i] + 'px';
-      if (midi === activeMidi) { key.style.background = color; key.style.opacity = '0.85'; }
-      key.addEventListener('click', function(e) { e.stopPropagation(); _pickNote(midi); });
-      keysEl.appendChild(key);
+      keysEl.appendChild(_makeKey('st-black-key', midi, midi === activeMidi, BLACK_OFFSETS[i]));
     });
   }
 

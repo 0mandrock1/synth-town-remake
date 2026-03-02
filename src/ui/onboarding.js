@@ -14,6 +14,9 @@ ST._UI = ST._UI || {};
 ST._UI.showToast = function(msg, duration) {
   const t = document.createElement('div');
   t.className = 'st-unlock-toast';
+  // AC-U3: role=status + aria-live so screen readers announce toast messages
+  t.setAttribute('role', 'status');
+  t.setAttribute('aria-live', 'polite');
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, duration || 3000);
@@ -43,6 +46,11 @@ ST._UI.createOnboarding = function() {
   function _hint(text) {
     const el = document.getElementById('onboard-hint');
     if (!el) return;
+    // AC-U3: ensure the element has the live-region role set once
+    if (!el.getAttribute('role')) {
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+    }
     el.style.display = '';
     el.textContent   = text;
   }
