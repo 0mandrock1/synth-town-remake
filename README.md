@@ -83,37 +83,54 @@ Copy `index.html`, `src/`, and `styles/` into the web root.
 
 ---
 
+## Transport bar
+
+| Control | Description |
+|---------|-------------|
+| ▶ Play / ▌▌ Pause | Start / stop vehicles (also `Space`) |
+| BPM slider | Tempo 60–180. Delay time re-syncs automatically |
+| Vol slider | Master volume |
+| ⚡ DJ Booth | Reverses all vehicles (unlocks at 300 pts) |
+| ♩+ Chord Mode | Adds a perfect fifth to every note (unlocks at 600 pts) |
+| ◇ Beat Grid | Sweeping playhead line overlay |
+| MIDI | Export city as `.mid` |
+| ◉ Color-Blind | ✓/✗ glyphs + ring flash instead of color-only signals |
+
 ## File layout
 
 ```
 index.html          entry point
 src/
-  config.js         constants (grid size, BPM, limits)
-  audio.js          Web Audio API wrapper, voice stealing
-  grid.js           2D tile map
-  buildings.js      oscillator buildings (CRUD + draw)
-  roads.js          road placement and auto-connect
-  vehicles.js       playhead movement and audio trigger
-  signs.js          traffic signs (traffic light, one-way, roundabout)
-  effects.js        compressor, delay, reverb, presets
-  score.js          city score and tier thresholds
-  unlocks.js        score-gated feature unlocks
-  history.js        undo / redo command stack
-  midi.js           .mid file export (Stage 9)
-  state.js          save / load / URL share
-  renderer.js       canvas draw loop
-  game.js           RAF game loop, boot
+  config.js         constants (grid, BPM, limits, colors)
+  audio.js          Web Audio API, 8-voice pool, BPM quantization, drone
+  grid.js           2D tile map (20×15)
+  buildings.js      oscillator buildings, CRUD, per-type filter envelope
+  roads.js          road tiles, auto-connect
+  vehicles.js       playhead movement, trigger logic, chord mode
+  signs.js          traffic light, one-way, roundabout
+  effects.js        compressor, delay (BPM-synced), reverb, presets
+  score.js          score formula (with harmony bonus), tier thresholds
+  unlocks.js        score-gated feature gates
+  history.js        undo/redo command stack
+  state.js          save/load (localStorage + URL hash)
+  midi.js           .mid file export
+  renderer.js       canvas draw loop, particles, screen shake, beat grid
+  game.js           RAF loop, beat clock, tier events, bass drop
   ui/
-    defs.js         toolbar definitions
-    onboarding.js   first-run flow + toast helper
+    defs.js         toolbar/building/vehicle/sign static definitions
+    onboarding.js   5-step first-run hint flow
     piano.js        note picker widget
-    toolbar.js      left toolbar builder
-  ui.js             canvas events, transport, property panel
+    toolbar.js      left sidebar builder
+    coach.js        step-by-step tour popovers
+  ui.js             canvas input, transport, property panel
 styles/
-  main.css          all styles
+  main.css          all styles (responsive: tablet ≤1024px, mobile ≤600px)
 tests/
   runner.html       browser test runner
-  test_stage_*.js   stage-by-stage tests
+  test_stage_*.js   per-stage tests
+docs/
+  architecture.md   module map, APIs, data flow, audio chain
+  plan.md           game design plan — mechanics, content, roadmap
 ```
 
 ## Browser requirements
