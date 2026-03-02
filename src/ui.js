@@ -88,6 +88,7 @@ ST.UI = (function() {
   ST._UI.hideTooltip = _hideTooltip;
 
   const _onboarding = ST._UI.createOnboarding();
+  let _coachMarks = null; // TT-4: initialized after audio start
 
   const _toolbar = ST._UI.createToolbar({
     onSetTool:      function(toolName) { ST.UI.setTool(toolName); },
@@ -189,6 +190,7 @@ ST.UI = (function() {
         _refreshScore();
         ST.History.push({ undo: function() { ST.Roads.remove(gx, gy); }, redo: function() { ST.Roads.place(gx, gy); } });
         if (_onboarding.getStep() === 1) _onboarding.advance(2);
+        if (_coachMarks) _coachMarks.advanceTo('Place a Building'); // TT-4
       }
 
     } else if (_tool === 'select') {
@@ -242,6 +244,7 @@ ST.UI = (function() {
           }
         });
         if (_onboarding.getStep() === 2) _onboarding.advance(3);
+        if (_coachMarks) _coachMarks.advanceTo('Press Play'); // TT-4
       }
     }
 
@@ -250,16 +253,23 @@ ST.UI = (function() {
 
   function _setupCanvas() {
     const canvas = document.getElementById('game');
-    let _mouseDown = false;
+    let _pointerDown = false;
 
-    canvas.addEventListener('mousedown', function(e) { _mouseDown = true; _onCanvasAction(e); });
-    canvas.addEventListener('mousemove', function(e) {
+    // MB-3: unified pointer handlers called from both mouse and touch events
+    function _handlePointerDown(clientX, clientY) {
+      _pointerDown = true;
+      _onCanvasAction({ clientX: clientX, clientY: clientY });
+    }
+
+    function _handlePointerMove(clientX, clientY) {
       const rect = canvas.getBoundingClientRect();
       _hoverTile = {
-        x: Math.floor((e.clientX - rect.left) / rect.width  * ST.Config.GRID_W),
-        y: Math.floor((e.clientY - rect.top)  / rect.height * ST.Config.GRID_H)
+        x: Math.floor((clientX - rect.left) / rect.width  * ST.Config.GRID_W),
+        y: Math.floor((clientY - rect.top)  / rect.height * ST.Config.GRID_H)
       };
-      if (_mouseDown && (_tool === 'road' || _tool === 'remove')) _onCanvasAction(e);
+      if (_pointerDown && (_tool === 'road' || _tool === 'remove')) {
+        _onCanvasAction({ clientX: clientX, clientY: clientY });
+      }
       // QW-U3: hover hum — play a quiet note preview for building tools
       const def = ST.Buildings.TYPES[_tool];
       if (def && ST.Grid.isInBounds(_hoverTile.x, _hoverTile.y)) {
@@ -273,14 +283,40 @@ ST.UI = (function() {
         _stopHoverHum();
       }
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
-    });
-    canvas.addEventListener('mouseup',    function() { _mouseDown = false; });
+    }
+
+    function _handlePointerUp() {
+      _pointerDown = false;
+    }
+
+    // Mouse events
+    canvas.addEventListener('mousedown',  function(e) { _handlePointerDown(e.clientX, e.clientY); });
+    canvas.addEventListener('mousemove',  function(e) { _handlePointerMove(e.clientX, e.clientY); });
+    canvas.addEventListener('mouseup',    function()  { _handlePointerUp(); });
     canvas.addEventListener('mouseleave', function() {
-      _mouseDown = false;
+      _pointerDown = false;
       _hoverTile = null;
       _stopHoverHum();
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
     });
+
+    // MB-3: touch events — passive:false to allow preventDefault (blocks scroll)
+    canvas.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      const t = e.touches[0];
+      _handlePointerDown(t.clientX, t.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', function(e) {
+      e.preventDefault();
+      const t = e.touches[0];
+      _handlePointerMove(t.clientX, t.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      _handlePointerUp();
+    }, { passive: false });
   }
 
   // AC-U2: focus-trap for the audio-overlay modal
@@ -323,11 +359,19 @@ ST.UI = (function() {
       const canvas = document.getElementById('game');
       if (canvas) canvas.focus();
       _onboarding.advance(1);
+      // TT-4: start coach mark tour on first audio start
+      if (!_coachMarks && ST._UI.createCoachMarks) {
+        _coachMarks = ST._UI.createCoachMarks();
+        _coachMarks.start();
+      }
     });
     if (playBtn) {
       playBtn.title = 'Play / Pause  [Space]';
       playBtn.addEventListener('click', function() {
-        ST.Game.isPlaying() ? ST.Game.stop() : ST.Game.start();
+        const wasPlaying = ST.Game.isPlaying();
+        wasPlaying ? ST.Game.stop() : ST.Game.start();
+        // TT-4: advance coach marks when play starts (not stops)
+        if (!wasPlaying && _coachMarks) _coachMarks.advanceTo('Control the Tempo');
       });
     }
     if (bpmSlider) {
@@ -344,6 +388,21 @@ ST.UI = (function() {
         if (gain) gain.gain.value = parseInt(this.value, 10) / 100;
       });
     }
+    // MB-5: mobile toolbar drawer toggle
+    const toggleBtn = document.getElementById('btn-toolbar-toggle');
+    const backdrop  = document.getElementById('toolbar-backdrop');
+    const toolbarEl = document.getElementById('toolbar');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function() {
+        if (toolbarEl) toolbarEl.classList.toggle('st-open');
+      });
+    }
+    if (backdrop) {
+      backdrop.addEventListener('click', function() {
+        if (toolbarEl) toolbarEl.classList.remove('st-open');
+      });
+    }
+
     const midiBtn = document.getElementById('btn-export-midi');
     if (midiBtn) midiBtn.addEventListener('click', function() { ST.MIDI.export(); });
 
@@ -548,18 +607,22 @@ ST.UI = (function() {
       // AC-U2: activate focus-trap in the startup modal
       _setupOverlayFocusTrap();
       _toolbar.updateToolBtns(_tool);
-      ST.Audio.onTrigger = function() { _onboarding.onTrigger(); };
+      ST.Audio.onTrigger = function() {
+        _onboarding.onTrigger();
+        if (_coachMarks) _coachMarks.advanceTo('Grow Your City'); // TT-4
+      };
       // Tooltips for transport controls
       _addTooltip('btn-play',      'Play / Stop\nStarts the city simulation\nVehicles move and trigger building notes');
       _addTooltip('slider-bpm',    'BPM — Beats per Minute\nSets playback speed and delay echo timing\n60–180 BPM');
       _addTooltip('beat-dot',      'Beat Indicator\nPulses on every beat at the current BPM');
       _addTooltip('slider-vol',    'Master Volume\nOverall output level');
-      _addTooltip('score-display', 'City Score\nBuildings ×10, roads ×2, vehicles ×15\nHarmonious neighbours earn bonus points (up to +200)');
+      _addTooltip('score-display', 'City Score\nBuildings ×10 · roads ×2 · vehicles ×15\nBuilding variety ×20 · signs ×10\nHarmony bonus (octaves/fifths between neighbours) up to +200');
       _addTooltip('btn-export-midi', 'Export MIDI\nDownload your city composition as a .mid file');
       _addTooltip('btn-remix', 'DJ Booth\nReverses all vehicle directions — creates a musical break\nUnlocks at City Rhythm (300 pts)');
       _addTooltip('btn-chord', 'Chord Mode\nAdds a perfect fifth to every note\nUnlocks at Urban Pulse (600 pts)');
       _addTooltip('btn-grid',  'Beat Grid\nShows a playhead sweeping left→right once per beat\nVisualize the city as a sequencer');
       _addTooltip('btn-colorblind', 'Color-Blind Mode\nAdds ✓/✗ shape glyphs on hover tiles\nAdds concentric ring flash on building triggers\nHold Shift to reveal vehicle route trails');
+      _addTooltip('status-display', 'City Status\nShows ⚡ Traffic Jam when vehicles are deadlocked\nHappens when too many vehicles share too few road tiles\nRemove a vehicle or add more roads to clear it');
     },
 
     setTool: function(toolName) {
