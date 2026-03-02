@@ -366,3 +366,180 @@ main {
   50% { border-color: #64b5f6; box-shadow: 0 0 8px rgba(100,181,246,0.45); }
 }
 .st-onboard-pulse { animation: st-onboard-pulse 1.2s ease-in-out infinite; }
+
+/* === MOBILE TOOLBAR TOGGLE (MB-5) === */
+#btn-toolbar-toggle {
+  display: none;
+  background: transparent;
+  color: #e0e0e0;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#btn-toolbar-toggle:hover { background: rgba(255,255,255,0.08); }
+
+/* Backdrop for mobile toolbar drawer */
+#toolbar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 49;
+}
+
+/* === RESPONSIVE — TABLET (MB-1: icon-strip sidebar) === */
+@media (max-width: 1024px) {
+  #app {
+    grid-template-columns: 48px 1fr 0px;
+  }
+  #toolbar {
+    padding: 4px;
+    align-items: center;
+  }
+  .st-tool-btn {
+    justify-content: center;
+    padding: 8px;
+    width: 36px;
+    height: 36px;
+  }
+  /* Hide text labels; color dot remains visible */
+  .st-btn-label { display: none; }
+  .st-toolbar-section { display: none; }
+}
+
+/* === RESPONSIVE — MOBILE (≤600px) === */
+@media (max-width: 600px) {
+  /* MB-5: canvas takes full width; toolbar becomes overlay */
+  #app {
+    grid-template-columns: 0 1fr 0px;
+    grid-template-rows: 1fr auto;
+  }
+
+  /* MB-5: slide-in drawer */
+  #toolbar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 220px;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 50;
+    padding: 8px;
+    align-items: flex-start;
+  }
+  #toolbar.st-open { transform: translateX(0); }
+  #toolbar.st-open + #toolbar-backdrop { display: block; }
+
+  /* Restore full labels inside the open drawer */
+  .st-btn-label { display: inline; }
+  .st-toolbar-section { display: block; }
+  .st-tool-btn {
+    justify-content: flex-start;
+    width: auto;
+    height: auto;
+    padding: 7px 10px;
+    min-height: 44px; /* MB-6: WCAG 2.5.8 minimum touch target */
+  }
+
+  /* MB-5: show hamburger toggle */
+  #btn-toolbar-toggle { display: flex; }
+
+  /* MB-2: transport wraps to two rows */
+  #transport {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px;
+    gap: 8px;
+  }
+  #transport > * { flex-shrink: 0; }
+  /* Push secondary controls to row 2 */
+  #btn-grid, #btn-remix, #btn-chord, #btn-colorblind, #btn-export-midi { order: 10; }
+
+  /* MB-6: minimum 44px touch targets on transport buttons */
+  #transport button { min-width: 44px; min-height: 44px; }
+
+  /* MB-4: properties panel as bottom sheet */
+  #properties {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    max-height: 55vh;
+    border-left: none;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px 12px 0 0;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    z-index: 60;
+    overflow-y: auto;
+  }
+  /* Slide up when panel has content (JS sets innerHTML) */
+  #properties:not(:empty) { transform: translateY(0); }
+}
+
+/* === COACH MARKS (TT-2) === */
+#st-coach {
+  position: fixed;
+  z-index: 200;
+  background: #1a1a3a;
+  border: 1px solid #64b5f6;
+  border-radius: 8px;
+  padding: 14px 16px;
+  max-width: 260px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  color: #e0e0e0;
+}
+#st-coach[hidden] { display: none; }
+#st-coach-arrow {
+  position: absolute;
+  width: 12px; height: 12px;
+  background: #1a1a3a;
+  border: 1px solid #64b5f6;
+  transform: rotate(45deg);
+}
+.st-arrow-top    { top: -7px; left: 20px; border-bottom: none; border-right: none; }
+.st-arrow-bottom { bottom: -7px; border-top: none; border-left: none; }
+.st-arrow-left   { left: -7px; top: 20px; border-right: none; border-bottom: none; }
+.st-arrow-right  { right: -7px; border-left: none; border-top: none; }
+#st-coach-step {
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+#st-coach-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #64b5f6;
+}
+#st-coach-text {
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+#st-coach-actions { display: flex; gap: 8px; justify-content: flex-end; }
+#st-coach-skip {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px;
+}
+#st-coach-skip:hover { color: rgba(255,255,255,0.7); }
+#st-coach-next {
+  background: #64b5f6;
+  color: #0a0a12;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#st-coach-next:hover { background: #90caf9; }

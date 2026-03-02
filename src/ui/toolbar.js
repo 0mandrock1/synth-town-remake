@@ -51,7 +51,10 @@ ST._UI.createToolbar = function(callbacks) {
       dot.setAttribute('aria-hidden', 'true');
       btn.appendChild(dot);
     }
-    btn.appendChild(document.createTextNode(def.label));
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'st-btn-label';
+    labelSpan.textContent = def.label;
+    btn.appendChild(labelSpan);
     btn.addEventListener('click', function() { callbacks.onSetTool(def.tool); });
     _attachTip(btn, def.tooltip);
     // AC-U2: play a brief 0.5s audio preview on building-type toolbar button hover
@@ -71,7 +74,10 @@ ST._UI.createToolbar = function(callbacks) {
   function _makeActionBtn(toolbar, label, onClick) {
     const btn = document.createElement('button');
     btn.className = 'st-tool-btn';
-    btn.appendChild(document.createTextNode(label));
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'st-btn-label';
+    labelSpan.textContent = label;
+    btn.appendChild(labelSpan);
     btn.addEventListener('click', onClick);
     toolbar.appendChild(btn);
   }
@@ -108,7 +114,10 @@ ST._UI.createToolbar = function(callbacks) {
       if (isActive) btn.classList.add('st-active');
       // AC-U3: aria-pressed reflects the active effects preset
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      btn.appendChild(document.createTextNode(PRESET_LABELS[name]));
+      const presetLabelSpan = document.createElement('span');
+      presetLabelSpan.className = 'st-btn-label';
+      presetLabelSpan.textContent = PRESET_LABELS[name];
+      btn.appendChild(presetLabelSpan);
       btn.addEventListener('click', function() {
         ST.Effects.setPreset(name);
         callbacks.onPresetChange();

@@ -22,6 +22,8 @@
   <div id="app">
     <!-- AC-U3: landmark labels -->
     <aside id="toolbar" aria-label="Tools and settings"></aside>
+    <!-- MB-5: backdrop for mobile toolbar drawer (toggled via CSS adjacent sibling) -->
+    <div id="toolbar-backdrop" aria-hidden="true"></div>
     <main aria-label="City canvas">
       <!-- AC-U3: role=application for interactive canvas; tabindex for keyboard focus -->
       <canvas id="game" role="application"
@@ -30,6 +32,8 @@
     </main>
     <aside id="properties" aria-label="Building properties"></aside>
     <footer id="transport" aria-label="Transport controls">
+      <!-- MB-5: hamburger toggle — hidden on desktop via CSS, shown on mobile -->
+      <button id="btn-toolbar-toggle" aria-label="Open tools menu">&#9776;</button>
       <!-- AC-U3: aria-label for icon-only play button; aria-pressed toggled by JS -->
       <button id="btn-play" aria-label="Play" aria-pressed="false">&#9654;</button>
       <!-- AC-U3: decorative labels hidden from AT; inputs get aria-label -->
@@ -92,6 +96,7 @@
   <script src="src/ui/onboarding.js"></script>
   <script src="src/ui/piano.js"></script>
   <script src="src/ui/toolbar.js"></script>
+  <script src="src/ui/coach.js"></script>
 
   <!-- UI assembly + remaining modules -->
   <script src="src/ui.js"></script>
@@ -99,6 +104,20 @@
   <script src="src/midi.js"></script>
   <script src="src/renderer.js"></script>
   <script src="src/game.js"></script>
+
+  <!-- TT-1: Coach mark popover (tutorial tooltips) -->
+  <div id="st-coach" role="dialog" aria-modal="false" aria-labelledby="st-coach-title" hidden>
+    <div id="st-coach-arrow"></div>
+    <div id="st-coach-body">
+      <p id="st-coach-step"></p>
+      <h3 id="st-coach-title"></h3>
+      <p id="st-coach-text" aria-live="polite"></p>
+      <div id="st-coach-actions">
+        <button id="st-coach-skip">Skip tour</button>
+        <button id="st-coach-next">Got it</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>
