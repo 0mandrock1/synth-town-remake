@@ -18,6 +18,9 @@ ST.Renderer = (function() {
   // AC-U1: beat grid playhead overlay
   let _gridOverlay = false;
 
+  // AC-U4: color-blind mode — adds shape-based indicators (✓/✗ glyphs + rings)
+  let _colorBlind = false;
+
   // MM-M2: harmonic district detection (updated every 60 frames)
   let _frameCounter = 0;
   const _harmonicDistricts = [];
@@ -132,6 +135,48 @@ ST.Renderer = (function() {
     });
   }
 
+  // AC-U3: draw dashed route trails for all vehicles when Shift is held
+  function _drawVehicleTrails(ctx) {
+    if (!ST.UI || !ST.UI.isShiftHeld()) return;
+    const { TILE } = ST.Config;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(100,181,246,0.55)';
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([4, 3]);
+    ST.Vehicles.getAll().forEach(function(v) {
+      if (!v.trail || v.trail.length < 2) return;
+      ctx.beginPath();
+      ctx.moveTo(v.trail[0].x * TILE + TILE / 2, v.trail[0].y * TILE + TILE / 2);
+      for (let i = 1; i < v.trail.length; i++) {
+        ctx.lineTo(v.trail[i].x * TILE + TILE / 2, v.trail[i].y * TILE + TILE / 2);
+      }
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // AC-U4: draw concentric expanding rings on building flash when color-blind mode is active
+  function _drawBuildingFlashRings(ctx) {
+    if (!_colorBlind) return;
+    const { TILE } = ST.Config;
+    ST.Buildings.getAll().forEach(function(b) {
+      if (b.flash <= 0) return;
+      const cx = b.x * TILE + TILE / 2;
+      const cy = b.y * TILE + TILE / 2;
+      ctx.save();
+      ctx.globalAlpha = b.flash * 0.5;
+      [12 + b.flash * 8, 20 + b.flash * 14].forEach(function(r) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = b.color;
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+      });
+      ctx.restore();
+    });
+  }
+
   function _drawHoverPreview(ctx) {
     const hover = ST.UI.getHoverTile();
     if (!hover || !ST.Grid.isInBounds(hover.x, hover.y)) return;
@@ -155,6 +200,17 @@ ST.Renderer = (function() {
     ctx.strokeStyle = col + '0.55)';
     ctx.lineWidth   = 1.5;
     ctx.strokeRect(px + 0.75, py + 0.75, TILE - 1.5, TILE - 1.5);
+
+    // AC-U4: draw ✓ / ✗ glyph when color-blind mode is active
+    if (_colorBlind) {
+      ctx.save();
+      ctx.fillStyle  = 'rgba(255,255,255,0.90)';
+      ctx.font       = 'bold 14px sans-serif';
+      ctx.textAlign  = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(valid ? '\u2713' : '\u2717', px + TILE / 2, py + TILE / 2);
+      ctx.restore();
+    }
   }
 
   function _drawGrid(ctx) {
@@ -224,6 +280,10 @@ ST.Renderer = (function() {
     setGridOverlay: function(on) { _gridOverlay = on; },
     isGridOverlay:  function() { return _gridOverlay; },
 
+    // AC-U4: color-blind mode toggle
+    setColorBlind: function(on) { _colorBlind = on; },
+    isColorBlind:  function() { return _colorBlind; },
+
     drawFrame: function() {
       const { GRID_W, GRID_H, TILE, COLORS } = ST.Config;
       _ctx.fillStyle = COLORS.bg;
@@ -259,8 +319,10 @@ ST.Renderer = (function() {
       });
 
       ST.Vehicles.draw(_ctx);
-      _drawParticles(_ctx);   // JD-U2
-      _drawBeatGrid(_ctx);    // AC-U1: beat grid playhead line
+      _drawVehicleTrails(_ctx);     // AC-U3: route trail on Shift
+      _drawBuildingFlashRings(_ctx); // AC-U4: colorblind concentric rings
+      _drawParticles(_ctx);          // JD-U2
+      _drawBeatGrid(_ctx);           // AC-U1: beat grid playhead line
       _drawHoverPreview(_ctx);
       _drawGrid(_ctx);
 

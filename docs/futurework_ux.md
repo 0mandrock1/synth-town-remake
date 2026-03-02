@@ -290,32 +290,48 @@ This is the most direct expression of the "city as sequencer" concept — a DAW-
 
 **Implemented:** `◇` button in transport bar. `ST.Renderer.setGridOverlay(bool)` / `isGridOverlay()`. In `drawFrame()`, reads `ST.Game.getBeatPhase()` to compute line position (`phase × GRID_W × TILE`). Blue glow line with `shadowBlur=8`.
 
-### AC-U2: Building Type Legend
+### AC-U2: Building Type Legend ✅ IMPLEMENTED 2026-03-02
 
 **Problem:** New players don't know what the 5 building types sound like without experimentation.
 
-**Solution:** On first hover over a building toolbar button (before first placement), show a tooltip that auto-plays a 0.5s preview of the waveform at its default pitch. The tooltip includes:
+**Solution:** On every `mouseenter` over a building toolbar button, plays a 0.5s audio preview at that type's `pitchDefault` and waveform. The existing descriptive tooltip already displays "Sounds like: …" text. No SVG icon added (deferred).
 
-- Waveform name and shape icon
-- "Sounds like: [description]" (e.g., "Sine: warm, pure tone")
-- A tiny animated waveform SVG
+**Implemented:** `toolbar.js _makeToolBtn()` — for keys of `ST.Buildings.TYPES`, a `mouseenter` listener calls `ST.Audio.trigger({ waveform, pitch: pitchDefault, decay: 0.5, velocity: 0.18 })`. Silent if audio not yet started.
 
-### AC-U3: Route Visualization Mode
+### AC-U3: Route Visualization Mode ✅ IMPLEMENTED 2026-03-02
 
 **Problem:** Players can't see which roads a vehicle will travel. Road networks are opaque.
 
-**Solution:** Holding Shift while hovering a vehicle shows the tiles it has visited (dashed blue trail) and arrows indicating preferred directions based on sign placement.
+**Solution:** Hold **Shift** to reveal all vehicle trails as dashed blue polylines on the canvas.
 
-### AC-U4: Color-Blind Mode
+**Implemented:**
+- `vehicles.js spawn()`: `trail: [{x, y}]` added to each vehicle object
+- `vehicles.js update()`: trail updated (push + cap at 12) on every tile transition
+- `renderer.js _drawVehicleTrails(ctx)`: dashed `rgba(100,181,246,0.55)` polyline through each vehicle's trail when `ST.UI.isShiftHeld()` returns true
+- `ui.js`: `_shiftHeld` boolean with `keydown`/`keyup`; `isShiftHeld()` in public API
 
-The current palette (blue/red/green/orange/purple buildings) relies entirely on hue. Adding secondary shape-based differentiation for all game elements:
+### AC-U4: Color-Blind Mode ✅ IMPLEMENTED 2026-03-02
+
+The current palette (blue/red/green/orange/purple buildings) relies entirely on hue. Secondary shape-based differentiation added as an opt-in toggle (`◉` button in transport bar):
 
 | Element | Color-Blind Addition |
 |---------|---------------------|
-| Hover: valid | Solid blue border + checkmark icon |
-| Hover: invalid | Dashed red border + X icon |
-| Building flash | Concentric rings outward (not just glow) |
-| Score tiers | Icon badges next to tier name |
+| Hover: valid | ✓ glyph (14px white) at tile center |
+| Hover: invalid | ✗ glyph (14px white) at tile center |
+| Building flash | Two concentric semi-transparent rings expand from building center |
+
+**Implemented:**
+- `renderer.js`: `_colorBlind` flag; `setColorBlind(on)` / `isColorBlind()`; `_drawHoverPreview` adds ✓/✗; `_drawBuildingFlashRings` emits rings per flash frame; both hooked in `drawFrame()`
+- `index.html`: `<button id="btn-colorblind">` with `aria-pressed`
+- `ui.js`: click handler toggles `ST.Renderer.setColorBlind()`, toast, `aria-pressed`; tooltip wired
+- `styles/main.css`: `#btn-colorblind` button style
+
+### WCAG Accessibility Compliance ✅ IMPLEMENTED 2026-03-02
+
+Full WCAG 2.1 AA conformance pass (see Wave 7 in futurework.md for full change list):
+- **WCAG-A1** Focus management: modal focus-trap, panel focus shift, `:focus-visible` ring
+- **WCAG-A2** ARIA semantics: landmarks, `aria-label`, `aria-pressed`, `aria-live`, `aria-hidden`, `aria-disabled` throughout
+- **WCAG-A3** Colour contrast: all low-opacity text raised to ≥4.5:1 on dark backgrounds
 
 ---
 

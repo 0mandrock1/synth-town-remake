@@ -12,6 +12,8 @@ ST.UI = (function() {
   let _tool             = 'road';
   let _selectedBuilding = null;
   let _hoverTile        = null;
+  // AC-U3: Shift key held state for route visualization
+  let _shiftHeld = false;
 
   // QW-U3: hover preview hum
   let _hoverOsc  = null;
@@ -376,6 +378,18 @@ ST.UI = (function() {
       });
     }
 
+    // AC-U4: color-blind mode toggle
+    const cbBtn = document.getElementById('btn-colorblind');
+    if (cbBtn) {
+      cbBtn.addEventListener('click', function() {
+        const on = !ST.Renderer.isColorBlind();
+        ST.Renderer.setColorBlind(on);
+        cbBtn.classList.toggle('st-active', on);
+        cbBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        ST._UI.showToast(on ? '\u267f Color-Blind Mode ON \u2014 \u2713/\u2717 glyphs + ring flash' : 'Color-Blind Mode OFF', 2500);
+      });
+    }
+
     // FM-A1: chord mode toggle — unlocks visually at Urban Pulse tier via game.js
     const chordBtn = document.getElementById('btn-chord');
     if (chordBtn) {
@@ -392,6 +406,10 @@ ST.UI = (function() {
   }
 
   function _setupKeyboard() {
+    // AC-U3: track Shift key for route visualization
+    document.addEventListener('keydown', function(e) { if (e.key === 'Shift') _shiftHeld = true; });
+    document.addEventListener('keyup',   function(e) { if (e.key === 'Shift') _shiftHeld = false; });
+
     document.addEventListener('keydown', function(e) {
       const overlay = document.getElementById('audio-overlay');
       if (overlay && overlay.style.display !== 'none') return;
@@ -541,6 +559,7 @@ ST.UI = (function() {
       _addTooltip('btn-remix', 'DJ Booth\nReverses all vehicle directions — creates a musical break\nUnlocks at City Rhythm (300 pts)');
       _addTooltip('btn-chord', 'Chord Mode\nAdds a perfect fifth to every note\nUnlocks at Urban Pulse (600 pts)');
       _addTooltip('btn-grid',  'Beat Grid\nShows a playhead sweeping left→right once per beat\nVisualize the city as a sequencer');
+      _addTooltip('btn-colorblind', 'Color-Blind Mode\nAdds ✓/✗ shape glyphs on hover tiles\nAdds concentric ring flash on building triggers\nHold Shift to reveal vehicle route trails');
     },
 
     setTool: function(toolName) {
@@ -553,6 +572,8 @@ ST.UI = (function() {
 
     getTool:        function() { return _tool; },
     getHoverTile:   function() { return _hoverTile; },
+    // AC-U3: used by renderer to toggle vehicle trail visualization
+    isShiftHeld:    function() { return _shiftHeld; },
     refreshToolbar: function() { _toolbar.build(); _toolbar.updateToolBtns(_tool); },
 
     showProperties: function(building) {

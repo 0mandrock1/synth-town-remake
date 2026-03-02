@@ -54,6 +54,17 @@ ST._UI.createToolbar = function(callbacks) {
     btn.appendChild(document.createTextNode(def.label));
     btn.addEventListener('click', function() { callbacks.onSetTool(def.tool); });
     _attachTip(btn, def.tooltip);
+    // AC-U2: play a brief 0.5s audio preview on building-type toolbar button hover
+    if (ST.Buildings && ST.Buildings.TYPES[def.tool]) {
+      btn.addEventListener('mouseenter', function() {
+        if (!ST.Audio || !ST.Audio.isReady()) return;
+        const bdef = ST.Buildings.TYPES[def.tool];
+        ST.Audio.trigger({
+          waveform: bdef.waveform, pitch: bdef.pitchDefault,
+          decay: 0.5, velocity: 0.18, sendDelay: 0, sendReverb: 0.05
+        });
+      });
+    }
     toolbar.appendChild(btn);
   }
 
