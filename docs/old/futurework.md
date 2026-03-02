@@ -64,7 +64,7 @@ The three critical deficits are:
 | 🟢 P3 | First Groove city-phrase achievement | mechanics | Low | ✅ Done (MM-M1) |
 | 🟢 P3 | Congestion penalty (gain duck + indicator) | mechanics | Low | ✅ Done (PE-M2) |
 | 🟢 P3 | DJ Booth remix button | mechanics | Low | ✅ Done (MM-M3) |
-| 🟢 P3 | Per-building filter envelope modulation | audio | High | ⬜ Pending |
+| 🟢 P3 | Per-building filter envelope modulation | audio | High | ✅ Done |
 | 🟡 P2 | WCAG focus-trap + keyboard modal management | ux | Low | ✅ Done (WCAG-A1) |
 | 🟡 P2 | WCAG ARIA semantics (roles, labels, live-regions) | ux | Medium | ✅ Done (WCAG-A2) |
 | 🟡 P2 | WCAG AA colour contrast + :focus-visible ring | ux | Low | ✅ Done (WCAG-A3) |
@@ -153,3 +153,10 @@ Changes applied:
 - `src/vehicles.js`: `trail` array (last 12 positions) added to each vehicle; updated in `update()` when tile changes (AC-U3)
 - `src/renderer.js`: `_colorBlind` flag + `setColorBlind()`/`isColorBlind()`; `_drawHoverPreview()` adds ✓/✗ glyph when colorblind mode; `_drawVehicleTrails()` draws dashed blue polyline when Shift held (AC-U3); concentric-ring flash on buildings when colorblind mode (AC-U4); `_drawVehicleTrails` + colorblind ring draw called from `drawFrame()`
 - `styles/main.css`: `:focus-visible` outline (2px #64b5f6, WCAG 2.4.7); all low-opacity rgba text raised ≥0.6 to pass WCAG AA 4.5:1 contrast on dark backgrounds; `#btn-colorblind` transport button styles
+
+**Wave 8 (2026-03-02): P3 — Per-building filter envelope modulation**
+
+Changes applied:
+- `src/audio.js`: `trigger()` now reads `params.filterQ` and applies it to `slot.filter.Q.value` (defaults to 1.0)
+- `src/buildings.js`: each building TYPE now carries `filterType`, `filterCutoff`, `filterQ` defining its characteristic timbre: sine=lowpass 1800Hz Q=0.7 (warm); square=lowpass 600Hz Q=1.5 (punchy); triangle=bandpass 1200Hz Q=1.2 (mid-focused); sawtooth=highpass 400Hz Q=0.8 (bright/raspy); pulse=bandpass 2800Hz Q=2.0 (piercing)
+- `src/vehicles.js`: `_triggerNearby()` reads building-type filter params and passes them to every `ST.Audio.trigger()` call (including overtone layers and chord mode voices); building filter takes priority over per-vehicle filter (CA-A2 fallback retained when building type has no filter defined)

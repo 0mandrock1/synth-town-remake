@@ -73,6 +73,7 @@ ST.Audio = (function() {
       const attack       = params.attack       || 0;
       const filterType   = params.filterType   || null;
       const filterCutoff = params.filterCutoff || null;
+      const filterQ      = params.filterQ      !== undefined ? params.filterQ : 1.0;
       const sendDelay    = params.sendDelay    !== undefined
         ? params.sendDelay  : (ST.Effects ? ST.Effects.getSendDelay()  : 0);
       const sendReverb   = params.sendReverb   !== undefined
@@ -107,6 +108,7 @@ ST.Audio = (function() {
       // Set filter (allpass = bypass when no filter requested)
       slot.filter.type = filterType || 'allpass';
       slot.filter.frequency.value = filterCutoff || 20000;
+      slot.filter.Q.value = filterQ;
 
       // Schedule amplitude envelope
       if (attack > 0) {

@@ -6,12 +6,15 @@
 ST.Buildings = (function() {
   console.log('[Buildings] initialized');
 
+  // Per-building filter envelope modulation: each waveform type carries its own
+  // characteristic filter that shapes its timbre whenever a vehicle triggers it.
+  // Building filter takes priority over the per-vehicle filter (CA-A2).
   const TYPES = {
-    sine:     { waveform: 'sine',     color: '#64b5f6', decay: 1.2,  pitchDefault: 261.63, widthRatio: 0.80, minH: 0.4, maxH: 1.5 },
-    square:   { waveform: 'square',   color: '#ef5350', decay: 0.3,  pitchDefault: 196.00, widthRatio: 0.90, minH: 0.3, maxH: 1.2 },
-    triangle: { waveform: 'triangle', color: '#66bb6a', decay: 0.8,  pitchDefault: 329.63, widthRatio: 0.60, minH: 0.6, maxH: 2.0 },
-    sawtooth: { waveform: 'sawtooth', color: '#ffa726', decay: 0.5,  pitchDefault: 220.00, widthRatio: 0.90, minH: 0.4, maxH: 1.4 },
-    pulse:    { waveform: 'square',   color: '#ab47bc', decay: 0.15, pitchDefault: 523.25, widthRatio: 0.30, minH: 0.8, maxH: 2.5 }
+    sine:     { waveform: 'sine',     color: '#64b5f6', decay: 1.2,  pitchDefault: 261.63, widthRatio: 0.80, minH: 0.4, maxH: 1.5, filterType: 'lowpass',  filterCutoff: 1800, filterQ: 0.7 },
+    square:   { waveform: 'square',   color: '#ef5350', decay: 0.3,  pitchDefault: 196.00, widthRatio: 0.90, minH: 0.3, maxH: 1.2, filterType: 'lowpass',  filterCutoff: 600,  filterQ: 1.5 },
+    triangle: { waveform: 'triangle', color: '#66bb6a', decay: 0.8,  pitchDefault: 329.63, widthRatio: 0.60, minH: 0.6, maxH: 2.0, filterType: 'bandpass', filterCutoff: 1200, filterQ: 1.2 },
+    sawtooth: { waveform: 'sawtooth', color: '#ffa726', decay: 0.5,  pitchDefault: 220.00, widthRatio: 0.90, minH: 0.4, maxH: 1.4, filterType: 'highpass', filterCutoff: 400,  filterQ: 0.8 },
+    pulse:    { waveform: 'square',   color: '#ab47bc', decay: 0.15, pitchDefault: 523.25, widthRatio: 0.30, minH: 0.8, maxH: 2.5, filterType: 'bandpass', filterCutoff: 2800, filterQ: 2.0 }
   };
 
   const _buildings = [];

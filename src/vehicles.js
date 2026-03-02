@@ -57,11 +57,16 @@ ST.Vehicles = (function() {
       if (nb.tile.type === 'building' && nb.tile.building) {
         const b = nb.tile.building;
         const level = b.level || 1;
+        // Per-building filter takes priority over per-vehicle filter (CA-A2 fallback)
+        const bDef = ST.Buildings.TYPES[b.type] || {};
+        const fType   = bDef.filterType   || fp.filterType;
+        const fCutoff = bDef.filterCutoff || fp.filterCutoff;
+        const fQ      = bDef.filterQ;
         ST.Audio.trigger({
           waveform: b.waveform, pitch: b.pitch,
           attack: typeDef.attack, decay: typeDef.decay,
           velocity: typeDef.velocityMult,
-          filterType: fp.filterType, filterCutoff: fp.filterCutoff,
+          filterType: fType, filterCutoff: fCutoff, filterQ: fQ,
           startTime: quantizedStart
         });
         // FM-A1: chord mode — add a fifth above at -6dB
@@ -70,7 +75,7 @@ ST.Vehicles = (function() {
             waveform: b.waveform, pitch: b.pitch * 1.5,
             attack: typeDef.attack, decay: typeDef.decay,
             velocity: typeDef.velocityMult * 0.5,
-            filterType: fp.filterType, filterCutoff: fp.filterCutoff,
+            filterType: fType, filterCutoff: fCutoff, filterQ: fQ,
             startTime: quantizedStart
           });
         }
@@ -80,7 +85,7 @@ ST.Vehicles = (function() {
             waveform: b.waveform, pitch: b.pitch * 2,
             attack: typeDef.attack, decay: typeDef.decay,
             velocity: typeDef.velocityMult * 0.25,
-            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+            filterType: fType, filterCutoff: fCutoff, filterQ: fQ
           });
         }
         if (level >= 5) {
@@ -88,7 +93,7 @@ ST.Vehicles = (function() {
             waveform: b.waveform, pitch: b.pitch * 1.5,
             attack: typeDef.attack, decay: typeDef.decay,
             velocity: typeDef.velocityMult * 0.30,
-            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+            filterType: fType, filterCutoff: fCutoff, filterQ: fQ
           });
         }
         if (level >= 7) {
@@ -96,7 +101,7 @@ ST.Vehicles = (function() {
             waveform: b.waveform, pitch: b.pitch * 3,
             attack: typeDef.attack, decay: typeDef.decay,
             velocity: typeDef.velocityMult * 0.20,
-            filterType: fp.filterType, filterCutoff: fp.filterCutoff
+            filterType: fType, filterCutoff: fCutoff, filterQ: fQ
           });
         }
         b.flash = 1.0;
