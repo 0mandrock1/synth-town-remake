@@ -10,9 +10,14 @@ ST.Unlocks = (function() {
   const _GATED  = [
     { id: 'bicycle',      score: 50  },
     { id: 'trafficLight', score: 100 },
+    { id: 'waypoint',     score: 100 },  // VR-M1: route waypoints unlock with traffic light
     { id: 'bus',          score: 150 },
     { id: 'oneWay',       score: 200 },
-    { id: 'roundabout',   score: 300 }
+    { id: 'speedUp',      score: 200 },  // VR-N2: speed zones unlock together
+    { id: 'slowDown',     score: 200 },  // VR-N2
+    { id: 'tram',         score: 250 },  // VR-V1: slow wide-radius vehicle
+    { id: 'roundabout',   score: 300 },
+    { id: 'drone',        score: 400 }   // VR-V2: aerial straight-line vehicle
   ];
 
   let _prevScore = 0;

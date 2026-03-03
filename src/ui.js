@@ -205,8 +205,13 @@ ST.UI = (function() {
       _handleRemoveTool(gx, gy, ST.Grid.getTile(gx, gy));
 
     } else if (ST.Vehicles.TYPES[_tool]) {
-      const tile = ST.Grid.getTile(gx, gy);
-      if (tile && tile.type === 'road') {
+      const tile    = ST.Grid.getTile(gx, gy);
+      const typeDef = ST.Vehicles.TYPES[_tool];
+      // VR-M2: drones fly and can be placed on empty or road tiles (not buildings)
+      const canPlace = typeDef && typeDef.ignoresRoads
+        ? (tile && tile.type !== 'building')
+        : (tile && tile.type === 'road');
+      if (canPlace) {
         let v = ST.Vehicles.spawn(_tool, gx, gy);
         if (v) {
           _refreshScore();
@@ -218,7 +223,10 @@ ST.UI = (function() {
     } else if (ST.Signs.TYPES[_tool]) {
       const tile = ST.Grid.getTile(gx, gy);
       if (tile && tile.type === 'road') {
-        const params = _tool === 'oneWay' ? { dir: 'E' } : {};
+        // VR-M1: waypoint auto-assigns next sequence number for route A
+        const params = _tool === 'oneWay'   ? { dir: 'E' }
+                     : _tool === 'waypoint' ? { routeId: 'A', seq: ST.Signs.nextWaypointSeq('A') }
+                     : {};
         ST.Signs.place(_tool, gx, gy, params);
         const signType = _tool;
         const sp = Object.assign({}, params);
