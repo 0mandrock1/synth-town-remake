@@ -68,6 +68,9 @@ ST.State = (function() {
     if (data.bpm    != null) ST.Audio.setBPM(data.bpm);
     if (data.preset != null) ST.Effects.setPreset(data.preset);
 
+    // Seed peak score from the restored city so unlocks reflect saved progress
+    if (ST.Unlocks.setPeakScore) ST.Unlocks.setPeakScore(ST.Score.calculate());
+
     ST.Renderer.drawFrame();
     ST.UI.updateTransport(ST.Audio.getBPM(), false);
     ST.UI.refreshToolbar();

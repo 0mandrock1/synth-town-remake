@@ -21,17 +21,20 @@ ST.Unlocks = (function() {
   ];
 
   let _prevScore = 0;
+  // UX: once unlocked, stays unlocked — allows rebuilding city without losing progress
+  let _peakScore = 0;
 
   return {
     isUnlocked: function(id) {
       if (_ALWAYS.indexOf(id) !== -1) return true;
       const gated = _GATED.filter(function(g) { return g.id === id; })[0];
       if (!gated) return true;
-      return ST.Score.calculate() >= gated.score;
+      return Math.max(ST.Score.calculate(), _peakScore) >= gated.score;
     },
 
     check: function() {
       const score = ST.Score.calculate();
+      _peakScore = Math.max(_peakScore, score);
       const fresh = _GATED.filter(function(g) {
         return score >= g.score && _prevScore < g.score;
       });
@@ -40,11 +43,14 @@ ST.Unlocks = (function() {
     },
 
     getAll: function() {
-      const score = ST.Score.calculate();
+      const score = Math.max(ST.Score.calculate(), _peakScore);
       return _ALWAYS.concat(
         _GATED.filter(function(g) { return score >= g.score; })
               .map(function(g) { return g.id; })
       );
-    }
+    },
+
+    // Allow state restore to seed peak score from a saved city
+    setPeakScore: function(s) { _peakScore = Math.max(_peakScore, s || 0); }
   };
 })();
