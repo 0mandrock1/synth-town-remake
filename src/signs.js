@@ -11,10 +11,16 @@ ST.Signs = (function() {
   const TYPES = {
     trafficLight: { period: 2.0 },
     oneWay:       { defaultDir: 'E' },
-    roundabout:   {}
+    roundabout:   {},
+    waypoint:     {},   // VR-M1: route sequencing marker — vehicles learn a loop
+    speedUp:      {},   // VR-N2: 2× speed zone (green fast lane)
+    slowDown:     {}    // VR-N2: 0.5× speed zone (orange brake zone)
   };
 
   const DIR_CLOCKWISE = { N:'E', E:'S', S:'W', W:'N' };
+
+  // VR-V3: per-route colour for waypoint drawing (up to 3 concurrent routes)
+  const ROUTE_COLORS = { A: '#ef5350', B: '#42a5f5', C: '#66bb6a' };
 
   return {
     TYPES: TYPES,
@@ -34,6 +40,17 @@ ST.Signs = (function() {
       const tile = ST.Grid.getTile(x, y);
       if (tile && tile.sign) _signCount--;
       ST.Grid.setTile(x, y, { sign: null });
+    },
+
+    // VR-M1: return the next available sequence number for a route (1-based)
+    nextWaypointSeq: function(routeId) {
+      let maxSeq = 0;
+      ST.Grid.forEachTile(function(tile) {
+        if (!tile.sign || tile.sign.type !== 'waypoint') return;
+        const p = tile.sign.params || {};
+        if (p.routeId === routeId && (p.seq || 0) > maxSeq) maxSeq = p.seq;
+      });
+      return maxSeq + 1;
     },
 
     evaluate: function(vehicle, x, y) {
@@ -57,6 +74,7 @@ ST.Signs = (function() {
         return { action: 'force', direction: DIR_CLOCKWISE[vehicle.dir] || vehicle.dir };
       }
 
+      // waypoint / speedUp / slowDown are read directly by ST.Vehicles — no action here
       return null;
     },
 
@@ -79,13 +97,13 @@ ST.Signs = (function() {
         ctx.fill();
 
       } else if (sign.type === 'oneWay') {
-        const ARROWS = { N:'↑', S:'↓', E:'→', W:'←' };
+        const ARROWS = { N:'\u2191', S:'\u2193', E:'\u2192', W:'\u2190' };
         const dir = (sign.params && sign.params.dir) || 'E';
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(ARROWS[dir] || '→', cx, cy - TILE / 4);
+        ctx.fillText(ARROWS[dir] || '\u2192', cx, cy - TILE / 4);
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
 
@@ -96,6 +114,53 @@ ST.Signs = (function() {
         ctx.arc(cx, cy - TILE / 4, 5, 0, Math.PI * 2);
         ctx.stroke();
         ctx.lineWidth = 1;
+
+      } else if (sign.type === 'waypoint') {
+        // VR-V3: coloured filled circle with route ID letter + seq number
+        const p       = sign.params || {};
+        const routeId = p.routeId || 'A';
+        const seq     = p.seq || 1;
+        const color   = ROUTE_COLORS[routeId] || '#ef5350';
+        // outer ring
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy - TILE / 4, 7, 0, Math.PI * 2);
+        ctx.stroke();
+        // filled circle
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(cx, cy - TILE / 4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        // seq label
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 6px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(seq > 9 ? seq : seq, cx, cy - TILE / 4);
+        ctx.lineWidth = 1;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+
+      } else if (sign.type === 'speedUp') {
+        // VR-V4: green double-arrow fast lane
+        ctx.fillStyle = '#66bb6a';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('\u21d1\u21d1', cx, cy - TILE / 4);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+
+      } else if (sign.type === 'slowDown') {
+        // VR-V5: orange double-arrow brake zone
+        ctx.fillStyle = '#ffa726';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('\u21d3\u21d3', cx, cy - TILE / 4);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
       }
     }
   };

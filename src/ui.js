@@ -205,8 +205,13 @@ ST.UI = (function() {
       _handleRemoveTool(gx, gy, ST.Grid.getTile(gx, gy));
 
     } else if (ST.Vehicles.TYPES[_tool]) {
-      const tile = ST.Grid.getTile(gx, gy);
-      if (tile && tile.type === 'road') {
+      const tile    = ST.Grid.getTile(gx, gy);
+      const typeDef = ST.Vehicles.TYPES[_tool];
+      // VR-M2: drones fly and can be placed on empty or road tiles (not buildings)
+      const canPlace = typeDef && typeDef.ignoresRoads
+        ? (tile && tile.type !== 'building')
+        : (tile && tile.type === 'road');
+      if (canPlace) {
         let v = ST.Vehicles.spawn(_tool, gx, gy);
         if (v) {
           _refreshScore();
@@ -218,7 +223,10 @@ ST.UI = (function() {
     } else if (ST.Signs.TYPES[_tool]) {
       const tile = ST.Grid.getTile(gx, gy);
       if (tile && tile.type === 'road') {
-        const params = _tool === 'oneWay' ? { dir: 'E' } : {};
+        // VR-M1: waypoint auto-assigns next sequence number for route A
+        const params = _tool === 'oneWay'   ? { dir: 'E' }
+                     : _tool === 'waypoint' ? { routeId: 'A', seq: ST.Signs.nextWaypointSeq('A') }
+                     : {};
         ST.Signs.place(_tool, gx, gy, params);
         const signType = _tool;
         const sp = Object.assign({}, params);
@@ -541,7 +549,9 @@ ST.UI = (function() {
     dot.style.background = props.color;
     const title = document.createElement('span');
     title.className = 'st-props-title';
-    title.textContent = building.type.charAt(0).toUpperCase() + building.type.slice(1) + ' Wave';
+    const _typeLabels = { sine: 'Sine Wave', square: 'Square Wave', triangle: 'Triangle Wave',
+                          sawtooth: 'Sawtooth Wave', pulse: 'Pulse Wave', arp: 'Arpeggio' };
+    title.textContent = _typeLabels[building.type] || (building.type.charAt(0).toUpperCase() + building.type.slice(1) + ' Wave');
     const closeBtn = document.createElement('button');
     closeBtn.className = 'st-props-close';
     closeBtn.textContent = '\u00d7';
@@ -623,6 +633,35 @@ ST.UI = (function() {
       if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
     });
     _addRow('Level', levelWrap);
+
+    // ARP-A1: pattern shuffle control for arp buildings
+    if (building.type === 'arp') {
+      const arpWrap = document.createElement('div');
+      arpWrap.className = 'st-props-value';
+      const patName = document.createElement('span');
+      patName.textContent = building.arpPatternName || 'Major';
+      patName.style.marginRight = '6px';
+      const shuffleBtn = document.createElement('button');
+      shuffleBtn.className = 'st-props-btn';
+      shuffleBtn.textContent = '\u21ba Shuffle';
+      shuffleBtn.setAttribute('aria-label', 'Shuffle arpeggio pattern');
+      shuffleBtn.addEventListener('click', function() {
+        ST.Buildings.randomizeArp(building);
+        patName.textContent = building.arpPatternName || 'Major';
+        if (ST.Audio.isReady()) {
+          building.arpPattern.forEach(function(step, i) {
+            setTimeout(function() {
+              ST.Audio.trigger({ waveform: building.waveform, pitch: building.pitch * step,
+                decay: 0.18, velocity: 0.5, sendReverb: 0.1 });
+            }, i * 100);
+          });
+        }
+        if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+      });
+      arpWrap.appendChild(patName);
+      arpWrap.appendChild(shuffleBtn);
+      _addRow('Pattern', arpWrap);
+    }
 
     panel.appendChild(body);
     if (app) app.style.gridTemplateColumns = '200px 1fr 220px';
