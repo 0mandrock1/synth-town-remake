@@ -125,8 +125,13 @@ ST.Vehicles = (function() {
       const fType   = bDef.filterType   || fp.filterType;
       const fCutoff = bDef.filterCutoff || fp.filterCutoff;
       const fQ      = bDef.filterQ;
+      // ARP-A1: arpeggiator — step through pattern on each vehicle trigger
+      const arpSteps = b.arpPattern && b.arpPattern.length;
+      const arpIdx   = arpSteps ? ((b.arpIdx || 0) % arpSteps) : 0;
+      const effectivePitch = arpSteps ? b.pitch * b.arpPattern[arpIdx] : b.pitch;
+      if (arpSteps) b.arpIdx = (arpIdx + 1) % arpSteps;
       ST.Audio.trigger({
-        waveform: b.waveform, pitch: b.pitch,
+        waveform: b.waveform, pitch: effectivePitch,
         attack: typeDef.attack, decay: typeDef.decay,
         velocity: typeDef.velocityMult * distMult,
         filterType: fType, filterCutoff: fCutoff, filterQ: fQ,
@@ -135,7 +140,7 @@ ST.Vehicles = (function() {
       // FM-A1: chord mode — add a fifth above at -6dB
       if (_chordMode) {
         ST.Audio.trigger({
-          waveform: b.waveform, pitch: b.pitch * 1.5,
+          waveform: b.waveform, pitch: effectivePitch * 1.5,
           attack: typeDef.attack, decay: typeDef.decay,
           velocity: typeDef.velocityMult * 0.5 * distMult,
           filterType: fType, filterCutoff: fCutoff, filterQ: fQ,
@@ -145,7 +150,7 @@ ST.Vehicles = (function() {
       // CLR-M3: higher level buildings add harmonic overtone layers
       if (level >= 3) {
         ST.Audio.trigger({
-          waveform: b.waveform, pitch: b.pitch * 2,
+          waveform: b.waveform, pitch: effectivePitch * 2,
           attack: typeDef.attack, decay: typeDef.decay,
           velocity: typeDef.velocityMult * 0.25,
           filterType: fType, filterCutoff: fCutoff, filterQ: fQ
@@ -153,7 +158,7 @@ ST.Vehicles = (function() {
       }
       if (level >= 5) {
         ST.Audio.trigger({
-          waveform: b.waveform, pitch: b.pitch * 1.5,
+          waveform: b.waveform, pitch: effectivePitch * 1.5,
           attack: typeDef.attack, decay: typeDef.decay,
           velocity: typeDef.velocityMult * 0.30,
           filterType: fType, filterCutoff: fCutoff, filterQ: fQ
@@ -161,7 +166,7 @@ ST.Vehicles = (function() {
       }
       if (level >= 7) {
         ST.Audio.trigger({
-          waveform: b.waveform, pitch: b.pitch * 3,
+          waveform: b.waveform, pitch: effectivePitch * 3,
           attack: typeDef.attack, decay: typeDef.decay,
           velocity: typeDef.velocityMult * 0.20,
           filterType: fType, filterCutoff: fCutoff, filterQ: fQ

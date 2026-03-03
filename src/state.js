@@ -23,7 +23,10 @@ ST.State = (function() {
       }
       if (tile.type === 'building' && tile.building) {
         const b = tile.building;
-        buildings.push({ type: b.type, x: x, y: y, pitch: b.pitch, level: b.level });
+        const bSnap = { type: b.type, x: x, y: y, pitch: b.pitch, level: b.level };
+        // ARP-A1: persist arpeggio pattern so rebuilt city keeps its musical sequence
+        if (b.arpPattern) { bSnap.arpPattern = b.arpPattern; bSnap.arpPatternName = b.arpPatternName; }
+        buildings.push(bSnap);
       }
     });
     const vehicles = ST.Vehicles.getAll().map(function(v) {
@@ -60,6 +63,12 @@ ST.State = (function() {
       const b = ST.Buildings.create(bd.type, bd.x, bd.y);
       if (b && bd.pitch != null) ST.Buildings.setProperty(b, 'pitch', bd.pitch);
       if (b && bd.level != null) ST.Buildings.setProperty(b, 'level', bd.level);
+      // ARP-A1: restore persisted arp pattern (overrides the random one assigned by create())
+      if (b && bd.arpPattern) {
+        ST.Buildings.setProperty(b, 'arpPattern', bd.arpPattern);
+        ST.Buildings.setProperty(b, 'arpPatternName', bd.arpPatternName || '');
+        ST.Buildings.setProperty(b, 'arpIdx', 0);
+      }
     });
     (data.signs    || []).forEach(function(s)  { ST.Signs.place(s.type, s.x, s.y, s.params); });
     (data.vehicles || []).forEach(function(vd) { ST.Vehicles.spawn(vd.type, vd.x, vd.y); });

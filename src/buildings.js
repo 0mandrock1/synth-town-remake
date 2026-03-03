@@ -14,8 +14,26 @@ ST.Buildings = (function() {
     square:   { waveform: 'square',   color: '#ef5350', decay: 0.3,  pitchDefault: 196.00, widthRatio: 0.90, minH: 0.3, maxH: 1.2, filterType: 'lowpass',  filterCutoff: 600,  filterQ: 1.5 },
     triangle: { waveform: 'triangle', color: '#66bb6a', decay: 0.8,  pitchDefault: 329.63, widthRatio: 0.60, minH: 0.6, maxH: 2.0, filterType: 'bandpass', filterCutoff: 1200, filterQ: 1.2 },
     sawtooth: { waveform: 'sawtooth', color: '#ffa726', decay: 0.5,  pitchDefault: 220.00, widthRatio: 0.90, minH: 0.4, maxH: 1.4, filterType: 'highpass', filterCutoff: 400,  filterQ: 0.8 },
-    pulse:    { waveform: 'square',   color: '#ab47bc', decay: 0.15, pitchDefault: 523.25, widthRatio: 0.30, minH: 0.8, maxH: 2.5, filterType: 'bandpass', filterCutoff: 2800, filterQ: 2.0 }
+    pulse:    { waveform: 'square',   color: '#ab47bc', decay: 0.15, pitchDefault: 523.25, widthRatio: 0.30, minH: 0.8, maxH: 2.5, filterType: 'bandpass', filterCutoff: 2800, filterQ: 2.0 },
+    // ARP-A1: arpeggiator — each vehicle pass plays the next step in a random chord pattern
+    arp:      { waveform: 'triangle', color: '#4dd0e1', decay: 0.22, pitchDefault: 261.63, widthRatio: 0.75, minH: 0.3, maxH: 1.8, filterType: 'bandpass', filterCutoff: 2000, filterQ: 1.5 }
   };
+
+  // ARP-A1: named chord/scale patterns stored as pitch ratio arrays (relative to root)
+  const ARP_PATTERNS = [
+    { name: 'Major',       steps: [1, 5/4, 3/2, 2] },
+    { name: 'Minor',       steps: [1, 6/5, 3/2, 2] },
+    { name: 'Pentatonic',  steps: [1, 9/8, 5/4, 3/2] },
+    { name: 'Sus2',        steps: [1, 9/8, 3/2, 2] },
+    { name: 'Major 7',     steps: [1, 5/4, 3/2, 15/8] },
+    { name: 'Maj. Down',   steps: [2, 3/2, 5/4, 1] },
+    { name: 'Fifth Ping',  steps: [1, 3/2, 2, 3/2] },
+    { name: 'Triad Loop',  steps: [1, 5/4, 3/2, 5/4] }
+  ];
+
+  function _generateArpPattern() {
+    return ARP_PATTERNS[Math.floor(Math.random() * ARP_PATTERNS.length)];
+  }
 
   const _buildings = [];
 
@@ -106,6 +124,19 @@ ST.Buildings = (function() {
     ctx.fill();
   }
 
+  // ARP-V1: staircase bars above building — each bar = one arp step, active step glows white
+  function _drawArp(ctx, bx, by, bw, arpIdx, patternLen) {
+    const n = Math.min(patternLen || 4, 4);
+    for (let i = 0; i < n; i++) {
+      const sw = Math.max(4, Math.round(bw * (n - i) / (n + 1)));
+      const sx = bx + Math.round((bw - sw) / 2);
+      const sy = by - (i + 1) * 4;
+      const active = ((arpIdx || 0) % n === i);
+      ctx.fillStyle = active ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.32)';
+      ctx.fillRect(sx, sy, sw, 3);
+    }
+  }
+
   return {
     TYPES: TYPES,
 
@@ -115,12 +146,20 @@ ST.Buildings = (function() {
       if (_buildings.length >= ST.Config.MAX_BUILDINGS) return null;
       const def = TYPES[type];
       if (!def) return null;
+      const pitch    = _smartPitch(x, y);
       const building = {
         type: type, x: x, y: y,
         waveform: def.waveform, color: def.color,
-        pitch: _smartPitch(x, y), decay: def.decay, level: 1,
+        pitch: pitch, decay: def.decay, level: 1,
         flash: 0, placementFlash: 1.0  // QW-U1: scale pop on placement
       };
+      // ARP-A1: initialise arpeggio pattern for arp buildings
+      if (type === 'arp') {
+        const pat = _generateArpPattern();
+        building.arpPattern     = pat.steps;
+        building.arpPatternName = pat.name;
+        building.arpIdx         = 0;
+      }
       _buildings.push(building);
       ST.Grid.setTile(x, y, { type: 'building', building: building });
       return building;
@@ -170,6 +209,7 @@ ST.Buildings = (function() {
       if (b.type === 'triangle') _drawTriangle(ctx, bx, by - bh, bw, bh, b.color);
       if (b.type === 'sawtooth') _drawSawtooth(ctx, bx, by - bh, bw, b.color);
       if (b.type === 'pulse')    _drawPulse(ctx, bx, by - bh, bw, b.color);
+      if (b.type === 'arp')      _drawArp(ctx, bx, by - bh, bw, b.arpIdx || 0, (b.arpPattern || []).length);
 
       if (needsSave) ctx.restore();
     },
@@ -188,6 +228,14 @@ ST.Buildings = (function() {
 
     count:  function() { return _buildings.length; },
     getAll: function() { return _buildings.slice(); },
+
+    // ARP-A1: re-roll the arp pattern for a building (resets step index)
+    randomizeArp: function(b) {
+      const pat = _generateArpPattern();
+      b.arpPattern     = pat.steps;
+      b.arpPatternName = pat.name;
+      b.arpIdx         = 0;
+    },
 
     // FM-A3: transpose all building pitches by semitones — global key change event
     transposePitches: function(semitones) {

@@ -6,7 +6,7 @@
 ST.Unlocks = (function() {
   console.log('[Unlocks] initialized');
 
-  const _ALWAYS = ['select','road','remove','sine','square','triangle','sawtooth','pulse','car'];
+  const _ALWAYS = ['select','road','remove','sine','square','triangle','sawtooth','pulse','arp','car'];
   const _GATED  = [
     { id: 'bicycle',      score: 50  },
     { id: 'trafficLight', score: 100 },

@@ -25,7 +25,9 @@ ST._UI.DEFS = {
     { tool: 'sawtooth', label: 'Sawtooth',  dot: '#ffa726',
       tooltip: 'Sawtooth Wave building\nBright, synth-bass tone · A3 (220 Hz)\nMedium decay (0.5 s) — edgy' },
     { tool: 'pulse',    label: 'Pulse',     dot: '#ab47bc',
-      tooltip: 'Pulse Wave building\nSharp, high synth tone · C5 (523 Hz)\nVery short decay (0.15 s) — percussive' }
+      tooltip: 'Pulse Wave building\nSharp, high synth tone · C5 (523 Hz)\nVery short decay (0.15 s) — percussive' },
+    { tool: 'arp',      label: 'Arpeggio',  dot: '#4dd0e1',
+      tooltip: 'Arpeggio building\nEach vehicle pass plays the next step in a chord pattern\nRandom pattern assigned on placement (Major, Minor, Pentatonic…)\nShuffle button in properties to re-roll the pattern' }
   ],
   VEHICLE_DEFS: [
     { tool: 'car',     label: 'Car',     dot: '#dce0e8',
