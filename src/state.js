@@ -27,7 +27,10 @@ ST.State = (function() {
       }
     });
     const vehicles = ST.Vehicles.getAll().map(function(v) {
-      return { type: v.type, x: v.x, y: v.y };
+      const vd = { type: v.type, x: v.x, y: v.y };
+      if (v.droneDir) vd.droneDir = v.droneDir;
+      if (v.route && v.route.length > 0) { vd.route = v.route; vd.routeIdx = v.routeIdx || 0; }
+      return vd;
     });
     return {
       v:         STATE_VERSION,
@@ -62,7 +65,11 @@ ST.State = (function() {
       if (b && bd.level != null) ST.Buildings.setProperty(b, 'level', bd.level);
     });
     (data.signs    || []).forEach(function(s)  { ST.Signs.place(s.type, s.x, s.y, s.params); });
-    (data.vehicles || []).forEach(function(vd) { ST.Vehicles.spawn(vd.type, vd.x, vd.y); });
+    (data.vehicles || []).forEach(function(vd) {
+      const v = ST.Vehicles.spawn(vd.type, vd.x, vd.y);
+      if (v && vd.droneDir) v.droneDir = vd.droneDir;
+      if (v && vd.route)    ST.Vehicles.setRoute(v, vd.route);
+    });
 
     // BUG FIX: use != null instead of falsy check (bpm=0 or preset='' would be skipped otherwise)
     if (data.bpm    != null) ST.Audio.setBPM(data.bpm);

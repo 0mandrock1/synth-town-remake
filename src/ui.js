@@ -11,9 +11,13 @@ ST.UI = (function() {
   // --- shared state ---
   let _tool             = 'road';
   let _selectedBuilding = null;
+  let _selectedVehicle  = null;
   let _hoverTile        = null;
   // AC-U3: Shift key held state for route visualization
   let _shiftHeld = false;
+  // VR-M1: route drawing mode — null when inactive
+  let _routingVehicle = null;
+  let _pendingRoute   = [];
   // MB-8: true while the mobile toolbar drawer CSS transition is running;
   // canvas touch events are suppressed during this window to prevent
   // stale getBoundingClientRect() coordinates causing tile misregistration.
@@ -177,6 +181,133 @@ ST.UI = (function() {
     }
   }
 
+  // VR-M1: vehicle properties panel with route drawing UI
+  function _showVehicleProperties(vehicle) {
+    _selectedVehicle = vehicle;
+    const panel = document.getElementById('properties');
+    const app   = document.getElementById('app');
+    if (!panel) return;
+    panel.innerHTML = '';
+    const typeDef = ST.Vehicles.TYPES[vehicle.type];
+
+    const header = document.createElement('div');
+    header.className = 'st-props-header';
+    const dot = document.createElement('span');
+    dot.className = 'st-color-dot';
+    dot.style.background = typeDef.color;
+    dot.setAttribute('aria-hidden', 'true');
+    const title = document.createElement('span');
+    title.className = 'st-props-title';
+    title.textContent = vehicle.type.charAt(0).toUpperCase() + vehicle.type.slice(1);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'st-props-close';
+    closeBtn.textContent = '\u00d7';
+    closeBtn.setAttribute('aria-label', 'Close vehicle properties');
+    closeBtn.addEventListener('click', function() {
+      _routingVehicle = null; _pendingRoute = [];
+      ST.UI.hideProperties();
+    });
+    header.appendChild(dot); header.appendChild(title); header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'st-props-body';
+
+    if (_routingVehicle === vehicle) {
+      // --- ROUTING MODE ---
+      const infoRow = document.createElement('div');
+      infoRow.className = 'st-props-row';
+      infoRow.innerHTML = '<div class="st-props-label">Waypoints</div>' +
+        '<div class="st-props-value" style="color:#00e676">' + _pendingRoute.length + '</div>';
+      body.appendChild(infoRow);
+
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:10px;color:#aaa;padding:4px 8px 8px;line-height:1.4';
+      hint.textContent = 'Click road tiles to set waypoints. Vehicle loops back to start.';
+      body.appendChild(hint);
+
+      const doneBtn = document.createElement('button');
+      doneBtn.className = 'st-tool-btn';
+      doneBtn.style.cssText = 'margin:0 8px 4px;background:#00e676;color:#000;font-weight:bold';
+      doneBtn.textContent = '\u2713 Done (' + _pendingRoute.length + ' pts)';
+      doneBtn.addEventListener('click', function() {
+        ST.Vehicles.setRoute(vehicle, _pendingRoute);
+        _routingVehicle = null; _pendingRoute = [];
+        _showVehicleProperties(vehicle);
+        if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+      });
+      body.appendChild(doneBtn);
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'st-tool-btn';
+      cancelBtn.style.cssText = 'margin:0 8px 4px';
+      cancelBtn.textContent = '\u2715 Cancel';
+      cancelBtn.addEventListener('click', function() {
+        _routingVehicle = null; _pendingRoute = [];
+        _showVehicleProperties(vehicle);
+        if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+      });
+      body.appendChild(cancelBtn);
+
+      if (_pendingRoute.length > 0) {
+        const clearPtsBtn = document.createElement('button');
+        clearPtsBtn.className = 'st-tool-btn';
+        clearPtsBtn.style.cssText = 'margin:0 8px 4px;color:#ef5350';
+        clearPtsBtn.textContent = '\u21ba Clear all points';
+        clearPtsBtn.addEventListener('click', function() {
+          _pendingRoute = [];
+          _showVehicleProperties(vehicle);
+          if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+        });
+        body.appendChild(clearPtsBtn);
+      }
+    } else {
+      // --- NORMAL MODE ---
+      const routeRow = document.createElement('div');
+      routeRow.className = 'st-props-row';
+      const routeLabel = document.createElement('div');
+      routeLabel.className = 'st-props-label';
+      routeLabel.textContent = 'Route';
+      const routeVal = document.createElement('div');
+      routeVal.className = 'st-props-value';
+      routeVal.textContent = (vehicle.route && vehicle.route.length > 0)
+        ? vehicle.route.length + ' waypoints'
+        : 'Free roam';
+      routeRow.appendChild(routeLabel); routeRow.appendChild(routeVal);
+      body.appendChild(routeRow);
+
+      const drawBtn = document.createElement('button');
+      drawBtn.className = 'st-tool-btn';
+      drawBtn.style.cssText = 'margin:6px 8px 4px';
+      drawBtn.textContent = (vehicle.route && vehicle.route.length > 0)
+        ? '\u270e Edit Route'
+        : '\u2295 Draw Route';
+      drawBtn.addEventListener('click', function() {
+        _routingVehicle = vehicle;
+        _pendingRoute   = vehicle.route ? vehicle.route.slice() : [];
+        _showVehicleProperties(vehicle);
+        if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+      });
+      body.appendChild(drawBtn);
+
+      if (vehicle.route && vehicle.route.length > 0) {
+        const clearRouteBtn = document.createElement('button');
+        clearRouteBtn.className = 'st-tool-btn';
+        clearRouteBtn.style.cssText = 'margin:0 8px 4px;color:#ef5350';
+        clearRouteBtn.textContent = '\u2715 Clear Route';
+        clearRouteBtn.addEventListener('click', function() {
+          ST.Vehicles.setRoute(vehicle, null);
+          _showVehicleProperties(vehicle);
+          if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+        });
+        body.appendChild(clearRouteBtn);
+      }
+    }
+
+    panel.appendChild(body);
+    if (app) app.style.gridTemplateColumns = '200px 1fr 220px';
+  }
+
   // --- canvas event handler ---
   function _onCanvasAction(e) {
     const canvas = document.getElementById('game');
@@ -186,6 +317,22 @@ ST.UI = (function() {
     const gx = Math.floor((e.clientX - rect.left) * scaleX / ST.Config.TILE);
     const gy = Math.floor((e.clientY - rect.top)  * scaleY / ST.Config.TILE);
     if (!ST.Grid.isInBounds(gx, gy)) return;
+
+    // VR-M1: routing mode intercepts all clicks — add road tiles as waypoints
+    if (_routingVehicle) {
+      const tile = ST.Grid.getTile(gx, gy);
+      if (tile && tile.type === 'road') {
+        _pendingRoute.push({ x: gx, y: gy });
+        _showVehicleProperties(_routingVehicle);
+        if (ST.Audio.isReady()) {
+          ST.Audio.trigger({ waveform: 'triangle',
+            pitch: 500 + _pendingRoute.length * 40,
+            decay: 0.04, velocity: 0.07, sendDelay: 0, sendReverb: 0 });
+        }
+      }
+      if (!ST.Game.isPlaying()) ST.Renderer.drawFrame();
+      return;
+    }
 
     if (_tool === 'road') {
       const ok = ST.Roads.place(gx, gy);
@@ -199,14 +346,22 @@ ST.UI = (function() {
 
     } else if (_tool === 'select') {
       const b = ST.Buildings.getAt(gx, gy);
-      if (b) { ST.UI.showProperties(b); } else { ST.UI.hideProperties(); }
+      if (b) {
+        ST.UI.showProperties(b);
+      } else {
+        // VR-M1: click vehicle with select tool to open vehicle properties
+        const v = ST.Vehicles.getAt(gx, gy);
+        if (v) { _showVehicleProperties(v); } else { ST.UI.hideProperties(); }
+      }
 
     } else if (_tool === 'remove') {
       _handleRemoveTool(gx, gy, ST.Grid.getTile(gx, gy));
 
     } else if (ST.Vehicles.TYPES[_tool]) {
       const tile = ST.Grid.getTile(gx, gy);
-      if (tile && tile.type === 'road') {
+      // Drone can spawn on any tile; road vehicles require a road tile
+      const canPlace = tile && (tile.type === 'road' || _tool === 'drone');
+      if (canPlace) {
         let v = ST.Vehicles.spawn(_tool, gx, gy);
         if (v) {
           _refreshScore();
@@ -668,6 +823,8 @@ ST.UI = (function() {
     getHoverTile:   function() { return _hoverTile; },
     // AC-U3: used by renderer to toggle vehicle trail visualization
     isShiftHeld:    function() { return _shiftHeld; },
+    // VR-M1: expose routing state for renderer to draw pending route overlay
+    getRoutingState: function() { return { vehicle: _routingVehicle, route: _pendingRoute.slice() }; },
     refreshToolbar: function() { _toolbar.build(); _toolbar.updateToolBtns(_tool); },
 
     showProperties: function(building) {
@@ -686,6 +843,9 @@ ST.UI = (function() {
 
     hideProperties: function() {
       _selectedBuilding = null;
+      _selectedVehicle  = null;
+      _routingVehicle   = null;
+      _pendingRoute     = [];
       const panel = document.getElementById('properties');
       const app   = document.getElementById('app');
       if (panel) panel.innerHTML = '';

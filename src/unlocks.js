@@ -12,7 +12,9 @@ ST.Unlocks = (function() {
     { id: 'trafficLight', score: 100 },
     { id: 'bus',          score: 150 },
     { id: 'oneWay',       score: 200 },
-    { id: 'roundabout',   score: 300 }
+    { id: 'roundabout',   score: 300 },
+    { id: 'tram',         score: 400 },
+    { id: 'drone',        score: 500 }
   ];
 
   let _prevScore = 0;

@@ -12,7 +12,7 @@ ST.Config = (function() {
     BPM_DEFAULT: 120,
     BPM_MIN: 60,
     BPM_MAX: 180,
-    MAX_VEHICLES: 8,
+    MAX_VEHICLES: 12,
     MAX_VOICES: 8,
     MAX_BUILDINGS: 50,
     MAX_ROADS: 200,

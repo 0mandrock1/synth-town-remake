@@ -33,7 +33,11 @@ ST._UI.DEFS = {
     { tool: 'bicycle', label: 'Bicycle', dot: '#64b5f6',
       tooltip: 'Bicycle\nBright bandpass filter (2.2 kHz) — crisp midrange focus\nSlower (0.8×) · decay 0.12 s · near-instant attack\nUnlocks at 50 pts' },
     { tool: 'bus',     label: 'Bus',     dot: '#ffa726',
-      tooltip: 'Bus\nWarm lowpass filter (800 Hz) — deep, muffled bass\nFaster (1.2×) · long decay (0.45 s) · soft attack\nUnlocks at 150 pts' }
+      tooltip: 'Bus\nWarm lowpass filter (800 Hz) — deep, muffled bass\nFaster (1.2×) · long decay (0.45 s) · soft attack\nUnlocks at 150 pts' },
+    { tool: 'tram',    label: 'Tram',    dot: '#ffd740',
+      tooltip: 'Tram\nUltra-warm lowpass (500 Hz) — deep resonant bloom\nSlow (0.55×) · wide trigger radius (2 tiles) · decay 0.6 s\nUnlocks at 400 pts' },
+    { tool: 'drone',   label: 'Drone',   dot: '#ce93d8',
+      tooltip: 'Drone\nHighpass filter (1.8 kHz) — airy, ethereal tone\nFlies diagonally — triggers buildings it passes over\nPlace anywhere · bounces off grid edges\nUnlocks at 500 pts' }
   ],
   SIGN_DEFS: [
     { tool: 'trafficLight', label: 'Traffic Light', dot: '#ef5350',

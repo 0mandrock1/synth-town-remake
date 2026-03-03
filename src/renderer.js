@@ -156,6 +156,51 @@ ST.Renderer = (function() {
     ctx.restore();
   }
 
+  // VR-M1: draw a waypoint path with numbered dots
+  function _drawRoutePath(ctx, route, strokeColor, dotColor, TILE) {
+    if (route.length === 0) return;
+    ctx.save();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(route[0].x * TILE + TILE / 2, route[0].y * TILE + TILE / 2);
+    for (let i = 1; i < route.length; i++) {
+      ctx.lineTo(route[i].x * TILE + TILE / 2, route[i].y * TILE + TILE / 2);
+    }
+    if (route.length > 1) {
+      ctx.lineTo(route[0].x * TILE + TILE / 2, route[0].y * TILE + TILE / 2);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    route.forEach(function(wp, i) {
+      ctx.fillStyle = dotColor;
+      ctx.beginPath();
+      ctx.arc(wp.x * TILE + TILE / 2, wp.y * TILE + TILE / 2, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0a0a12';
+      ctx.font = 'bold 7px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(i + 1, wp.x * TILE + TILE / 2, wp.y * TILE + TILE / 2);
+    });
+    ctx.restore();
+  }
+
+  // VR-M1: always-visible route overlays + pending route while in drawing mode
+  function _drawRouteOverlay(ctx) {
+    const { TILE } = ST.Config;
+    ST.Vehicles.getAll().forEach(function(v) {
+      if (!v.route || v.route.length === 0) return;
+      _drawRoutePath(ctx, v.route, 'rgba(255,64,129,0.5)', '#ff4081', TILE);
+    });
+    if (!ST.UI || !ST.UI.getRoutingState) return;
+    const rs = ST.UI.getRoutingState();
+    if (rs.vehicle && rs.route && rs.route.length > 0) {
+      _drawRoutePath(ctx, rs.route, 'rgba(0,230,118,0.75)', '#00e676', TILE);
+    }
+  }
+
   // AC-U4: draw concentric expanding rings on building flash when color-blind mode is active
   function _drawBuildingFlashRings(ctx) {
     if (!_colorBlind) return;
@@ -191,7 +236,7 @@ ST.Renderer = (function() {
     if      (tool === 'road'                   && tile && tile.type === 'empty') valid = true;
     else if (tool === 'remove'                  && tile && tile.type !== 'empty') valid = true;
     else if (ST.Buildings.TYPES[tool]           && tile && tile.type === 'empty') valid = true;
-    else if (ST.Vehicles.TYPES[tool]            && tile && tile.type === 'road')  valid = true;
+    else if (ST.Vehicles.TYPES[tool]            && tile && (tile.type === 'road' || tool === 'drone')) valid = true;
     else if (ST.Signs.TYPES[tool]               && tile && tile.type === 'road')  valid = true;
 
     const col = valid ? 'rgba(100,181,246,' : 'rgba(239,83,80,';
@@ -320,6 +365,7 @@ ST.Renderer = (function() {
 
       ST.Vehicles.draw(_ctx);
       _drawVehicleTrails(_ctx);     // AC-U3: route trail on Shift
+      _drawRouteOverlay(_ctx);       // VR-M1: assigned routes + pending route
       _drawBuildingFlashRings(_ctx); // AC-U4: colorblind concentric rings
       _drawParticles(_ctx);          // JD-U2
       _drawBeatGrid(_ctx);           // AC-U1: beat grid playhead line
